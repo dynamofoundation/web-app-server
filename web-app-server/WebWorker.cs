@@ -32,7 +32,7 @@ namespace web_app_server
                 Console.WriteLine(request.RawUrl);
 
                 //array to store the response in
-                byte[] binaryData;
+                byte[] binaryData = Encoding.ASCII.GetBytes("Internal error."); ;
 
                 bool valid = true;
                 if (path[0].Length != 64)
