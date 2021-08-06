@@ -29,6 +29,7 @@ namespace web_app_server
 
                 string[] path = request.RawUrl.Substring(1).Split("/");
 
+                Console.WriteLine(request.RawUrl);
 
                 //array to store the response in
                 byte[] binaryData;
@@ -55,41 +56,48 @@ namespace web_app_server
                 {
 
                     string strResponse = GetAsset(path[0]);
-
-                    byte[] binaryResponse = HexToByte(strResponse);
-
-                    string assetHash;
-                    string assetClassHash;
-                    string metaData;
-                    string owner;
-                    string txnID;
-
-                    int offset = 0;
-                    assetHash = ReadString(binaryResponse, ref offset);
-                    assetClassHash = ReadString(binaryResponse, ref offset);
-                    metaData = ReadString(binaryResponse, ref offset);
-                    binaryData = ReadVector(binaryResponse, ref offset);
-                    owner = ReadString(binaryResponse, ref offset);
-                    txnID = ReadString(binaryResponse, ref offset);
-
-                    bool webpack = false;
-                    try
+                    if (strResponse == "error-pending-request")
                     {
-                        dynamic jMeta = JsonConvert.DeserializeObject(metaData);
-                        if ((jMeta.webpack_version == 1) && (jMeta.index_file.ToString().Length > 0))
-                            webpack = true;
+                        binaryData = Encoding.ASCII.GetBytes("That asset is not available on the server and has been requested from the network.  Please try again in a few minutes");
                     }
-                    catch (Exception ex)
+                    else
                     {
 
-                    }
+                        byte[] binaryResponse = HexToByte(strResponse);
 
-                    if (webpack)
-                    {
-                        dynamic jMeta = JsonConvert.DeserializeObject(metaData);
-                        Global.LoadWebPack(assetHash, binaryData, jMeta.index_file.ToString());
-                        binaryData = Global.GetWebPackPage(path[0], Global.webPacks[path[0]].indexPage);
+                        string assetHash;
+                        string assetClassHash;
+                        string metaData;
+                        string owner;
+                        string txnID;
 
+                        int offset = 0;
+                        assetHash = ReadString(binaryResponse, ref offset);
+                        assetClassHash = ReadString(binaryResponse, ref offset);
+                        metaData = ReadString(binaryResponse, ref offset);
+                        binaryData = ReadVector(binaryResponse, ref offset);
+                        owner = ReadString(binaryResponse, ref offset);
+                        txnID = ReadString(binaryResponse, ref offset);
+
+                        bool webpack = false;
+                        try
+                        {
+                            dynamic jMeta = JsonConvert.DeserializeObject(metaData);
+                            if ((jMeta.webpack_version == 1) && (jMeta.index_file.ToString().Length > 0))
+                                webpack = true;
+                        }
+                        catch (Exception ex)
+                        {
+
+                        }
+
+                        if (webpack)
+                        {
+                            dynamic jMeta = JsonConvert.DeserializeObject(metaData);
+                            Global.LoadWebPack(assetHash, binaryData, jMeta.index_file.ToString());
+                            binaryData = Global.GetWebPackPage(path[0], Global.webPacks[path[0]].indexPage);
+
+                        }
                     }
                 }
 
