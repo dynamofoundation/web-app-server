@@ -224,7 +224,9 @@ namespace web_app_server
             int i = 0;
             while ((i < data.Length) && (result))
             {
-                result = (((data[i] >= '0') && (data[i] <= '9') || ((data[i] >= 'a') && (data[i] <= 'f')));
+                result = (((data[i] >= '0') && (data[i] <= '9')) || ((data[i] >= 'a') && (data[i] <= 'f')));
+                if (result)
+                    i++;
             }
             return result;
         }
