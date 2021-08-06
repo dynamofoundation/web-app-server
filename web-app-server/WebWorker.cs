@@ -34,69 +34,84 @@ namespace web_app_server
                 //array to store the response in
                 byte[] binaryData;
 
-
-                //if the hash is a webpack and it's loaded, then respond with the page from cache
-                if (Global.webPacks.ContainsKey(path[0]))
+                bool valid = true;
+                if (path[0].Length != 64)
                 {
-                    if (path.Length > 1)
-                    {
-                        string fullPath = "";
-                        for (int i = 1; i < path.Length - 1; i++)
-                            fullPath = fullPath + path[i] + "\\";
-                        fullPath = fullPath + path[path.Length - 1];
-                        binaryData = Global.GetWebPackPage(path[0], fullPath);
-                    }
-                    else
-                    {
-                        binaryData = Global.GetWebPackPage(path[0], Global.webPacks[path[0]].indexPage);
-                    }
-
+                    binaryData = Encoding.ASCII.GetBytes("Invalid hash format, must be 64 hexadecimal characters.");
+                    valid = false;
                 }
-                else
-                {
 
-                    string strResponse = GetAsset(path[0]);
-                    if (strResponse == "error-pending-request")
+                if (!ValidHex(path[0]))
+                {
+                    binaryData = Encoding.ASCII.GetBytes("Invalid hash format, must be 64 hexadecimal characters.");
+                    valid = false;
+                }
+
+                if (valid)
+                {
+                    //if the hash is a webpack and it's loaded, then respond with the page from cache
+                    if (Global.webPacks.ContainsKey(path[0]))
                     {
-                        binaryData = Encoding.ASCII.GetBytes("That asset is not available on the server and has been requested from the network.  Please try again in a few minutes");
+                        if ((path.Length > 1) && (path[1].Length > 0))
+                        {
+                            string fullPath = "";
+                            for (int i = 1; i < path.Length - 1; i++)
+                                fullPath = fullPath + path[i] + "\\";
+                            fullPath = fullPath + path[path.Length - 1];
+                            binaryData = Global.GetWebPackPage(path[0], fullPath);
+                        }
+                        else
+                        {
+                            binaryData = Global.GetWebPackPage(path[0], Global.webPacks[path[0]].indexPage);
+                        }
+
                     }
                     else
                     {
 
-                        byte[] binaryResponse = HexToByte(strResponse);
-
-                        string assetHash;
-                        string assetClassHash;
-                        string metaData;
-                        string owner;
-                        string txnID;
-
-                        int offset = 0;
-                        assetHash = ReadString(binaryResponse, ref offset);
-                        assetClassHash = ReadString(binaryResponse, ref offset);
-                        metaData = ReadString(binaryResponse, ref offset);
-                        binaryData = ReadVector(binaryResponse, ref offset);
-                        owner = ReadString(binaryResponse, ref offset);
-                        txnID = ReadString(binaryResponse, ref offset);
-
-                        bool webpack = false;
-                        try
+                        string strResponse = GetAsset(path[0]);
+                        if (strResponse == "error-pending-request")
                         {
-                            dynamic jMeta = JsonConvert.DeserializeObject(metaData);
-                            if ((jMeta.webpack_version == 1) && (jMeta.index_file.ToString().Length > 0))
-                                webpack = true;
+                            binaryData = Encoding.ASCII.GetBytes("That asset is not available on the server and has been requested from the network.  Please try again in a few minutes");
                         }
-                        catch (Exception ex)
+                        else
                         {
 
-                        }
+                            byte[] binaryResponse = HexToByte(strResponse);
 
-                        if (webpack)
-                        {
-                            dynamic jMeta = JsonConvert.DeserializeObject(metaData);
-                            Global.LoadWebPack(assetHash, binaryData, jMeta.index_file.ToString());
-                            binaryData = Global.GetWebPackPage(path[0], Global.webPacks[path[0]].indexPage);
+                            string assetHash;
+                            string assetClassHash;
+                            string metaData;
+                            string owner;
+                            string txnID;
 
+                            int offset = 0;
+                            assetHash = ReadString(binaryResponse, ref offset);
+                            assetClassHash = ReadString(binaryResponse, ref offset);
+                            metaData = ReadString(binaryResponse, ref offset);
+                            binaryData = ReadVector(binaryResponse, ref offset);
+                            owner = ReadString(binaryResponse, ref offset);
+                            txnID = ReadString(binaryResponse, ref offset);
+
+                            bool webpack = false;
+                            try
+                            {
+                                dynamic jMeta = JsonConvert.DeserializeObject(metaData);
+                                if ((jMeta.webpack_version == 1) && (jMeta.index_file.ToString().Length > 0))
+                                    webpack = true;
+                            }
+                            catch (Exception ex)
+                            {
+
+                            }
+
+                            if (webpack)
+                            {
+                                dynamic jMeta = JsonConvert.DeserializeObject(metaData);
+                                Global.LoadWebPack(assetHash, binaryData, jMeta.index_file.ToString());
+                                binaryData = Global.GetWebPackPage(path[0], Global.webPacks[path[0]].indexPage);
+
+                            }
                         }
                     }
                 }
@@ -200,6 +215,19 @@ namespace web_app_server
             return submitResponse;
         }
 
+
+        public bool ValidHex (string data)
+        {
+            data = data.ToLower();
+
+            bool result = true;
+            int i = 0;
+            while ((i < data.Length) && (result))
+            {
+                result = (((data[i] >= '0') && (data[i] <= '9') || ((data[i] >= 'a') && (data[i] <= 'f')));
+            }
+            return result;
+        }
 
         public byte[] HexToByte(string data)
         {
