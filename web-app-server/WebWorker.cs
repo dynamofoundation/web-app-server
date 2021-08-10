@@ -43,9 +43,12 @@ namespace web_app_server
                     Dictionary<string, string> args = ParseArgs(request.Url.Query);
                     string address = args["addr"];
 
-                    if (Global.walletList.ContainsKey(address))
-                        binaryData = Encoding.ASCII.GetBytes(Global.walletList[address].balance.ToString("0"));
-                    processedAPI = true;
+                    lock (Global.walletList)
+                    {
+                        if (Global.walletList.ContainsKey(address))
+                            binaryData = Encoding.ASCII.GetBytes(Global.walletList[address].balance.ToString("0"));
+                        processedAPI = true;
+                    }
                 }
 
                 else if (path[0].StartsWith("get_utxo"))
@@ -56,30 +59,34 @@ namespace web_app_server
 
                     string result = "";
 
-                    if (Global.walletList.ContainsKey(address))
+                    lock (Global.walletList)
                     {
-                        int num = 0;
-                        int ptr = 0;
+                        if (Global.walletList.ContainsKey(address))
+                        {
+                            int num = 0;
+                            int ptr = 0;
 
-                        foreach (Global.UTXO utxo in Global.walletList[address].utxo.Values) {
-                            if (ptr >= start)
+                            foreach (Global.UTXO utxo in Global.walletList[address].utxo.Values)
                             {
+                                if (ptr >= start)
+                                {
 
-                                result += utxo.hash + "," +
-                                    utxo.vout + "," +
-                                    utxo.amount + "\n";
-                                ptr++;
-                                num++;
+                                    result += utxo.hash + "," +
+                                        utxo.vout + "," +
+                                        utxo.amount + "\n";
+                                    ptr++;
+                                    num++;
+                                }
+                                else
+                                    ptr++;
+                                if (num == 100)
+                                    break;
                             }
-                            else
-                                ptr++;
-                            if (num == 100)
-                                break;
-                        }
 
-                        binaryData = Encoding.ASCII.GetBytes(result);
+                            binaryData = Encoding.ASCII.GetBytes(result);
+                        }
+                        processedAPI = true;
                     }
-                    processedAPI = true;
                 }
 
                 else if (path[0].StartsWith("get_transactions"))
@@ -90,29 +97,53 @@ namespace web_app_server
 
                     string result = "";
 
-                    if (Global.walletList.ContainsKey(address)) {
-
-                        int num = 0;
-                        int ptr = start;
-
-                        while ((num < 100) && (ptr < Global.walletList[address].history.Count))
+                    lock (Global.walletList)
+                    {
+                        if (Global.walletList.ContainsKey(address))
                         {
-                            result += Global.walletList[address].history[ptr].timestamp + "," +
-                                Global.walletList[address].history[ptr].from + "," +
-                                Global.walletList[address].history[ptr].to + "," +
-                                Global.walletList[address].history[ptr].amount + "\n";
-                            ptr++;
-                            num++;
+
+                            int num = 0;
+                            int ptr = start;
+
+                            while ((num < 100) && (ptr < Global.walletList[address].history.Count))
+                            {
+                                result += Global.walletList[address].history[ptr].timestamp + "," +
+                                    Global.walletList[address].history[ptr].from + "," +
+                                    Global.walletList[address].history[ptr].to + "," +
+                                    Global.walletList[address].history[ptr].amount + "\n";
+                                ptr++;
+                                num++;
+                            }
+
+                            binaryData = Encoding.ASCII.GetBytes(result);
                         }
 
-                        binaryData = Encoding.ASCII.GetBytes(result);
+                        processedAPI = true;
                     }
-
-                    processedAPI = true;
                 }
 
-                else if (path[0].StartsWith("send_coins"))
+                else if (path[0].StartsWith("send_tx"))
                 {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string hex = args["hex"];
+
+                    string result = "error";
+
+                    string command = "{ \"id\": 0, \"method\" : \"sendrawtransaction\", \"params\" : [ \"" + hex + "\" ] }";
+
+                    try
+                    {
+                        string rpcResult = rpcExec(command);
+                        dynamic jRPCResult = JObject.Parse(rpcResult);
+                        result = jRPCResult.result;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(e.StackTrace);
+                    }
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
 
                     processedAPI = true;
                 }

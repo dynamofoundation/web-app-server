@@ -210,68 +210,81 @@ namespace web_app_server
 
             string key = txID + n.ToString();
 
-            txList.Add(key, tx);
+            lock(txList)
+                txList.Add(key, tx);
 
 
-            Wallet w;
-            if (walletList.ContainsKey(address))
+            lock (walletList)
             {
-                w = walletList[address];
-            }
-            else
-            {
-                w = new Wallet();
-                w.address = address;
-                w.balance = 0;
-                w.history = new List<Transaction>();
-                w.utxo = new Dictionary<string, UTXO>();
-            }
+                Wallet w;
+                if (walletList.ContainsKey(address))
+                {
+                    w = walletList[address];
+                }
+                else
+                {
+                    w = new Wallet();
+                    w.address = address;
+                    w.balance = 0;
+                    w.history = new List<Transaction>();
+                    w.utxo = new Dictionary<string, UTXO>();
+                }
 
-            UTXO u = new UTXO();
-            u.hash = txID;
-            u.vout = n;
-            u.amount = amount;
-            w.utxo.Add(key, u);
-            walletList[address] = w;
+                UTXO u = new UTXO();
+                u.hash = txID;
+                u.vout = n;
+                u.amount = amount;
+                w.utxo.Add(key, u);
+                walletList[address] = w;
+            }
 
         }
 
         public static void spendTransaction(string txid, int vout)
         {
             string key = txid + vout.ToString();
-            if (txList.ContainsKey(key))
+            lock (txList)
             {
-                TX tx = txList[key];
-                tx.spent = true;
-                txList[key] = tx;
+                if (txList.ContainsKey(key))
+                {
+                    TX tx = txList[key];
+                    tx.spent = true;
+                    txList[key] = tx;
 
-                if (walletList[tx.address].utxo.ContainsKey(key))
-                    walletList[tx.address].utxo.Remove(key);
+                    lock (walletList)
+                    {
+                        if (walletList[tx.address].utxo.ContainsKey(key))
+                            walletList[tx.address].utxo.Remove(key);
+                        else
+                            Console.WriteLine("Error: didnt find utxo in wallet " + txid + "  " + vout);
+                    }
+                }
                 else
-                    Console.WriteLine("Error: didnt find utxo in wallet " + txid + "  " + vout);
+                    Console.WriteLine("Error: didnt find utxo " + txid + "  " + vout);
             }
-            else
-                Console.WriteLine("Error: didnt find utxo " + txid + "  " + vout);
 
         }
 
         public static void updateWalletBalance(string address, decimal amount)
         {
 
-            if (walletList.ContainsKey(address))
+            lock (walletList)
             {
-                Wallet w = walletList[address];
-                w.balance += amount;
-                walletList[address] = w;
-            }
-            else
-            {
-                Wallet w = new Wallet();
-                w.address = address;
-                w.balance = amount;
-                w.history = new List<Transaction>();
-                w.utxo = new Dictionary<string, UTXO>();
-                walletList.Add(address, w);
+                if (walletList.ContainsKey(address))
+                {
+                    Wallet w = walletList[address];
+                    w.balance += amount;
+                    walletList[address] = w;
+                }
+                else
+                {
+                    Wallet w = new Wallet();
+                    w.address = address;
+                    w.balance = amount;
+                    w.history = new List<Transaction>();
+                    w.utxo = new Dictionary<string, UTXO>();
+                    walletList.Add(address, w);
+                }
             }
         }
 
@@ -280,25 +293,29 @@ namespace web_app_server
             Wallet w;
             Transaction t;
 
-            if (from != "coinbase") { 
-                w = walletList[from];
+            lock (walletList)
+            {
+                if (from != "coinbase")
+                {
+                    w = walletList[from];
+                    t = new Transaction();
+                    t.timestamp = timestamp;
+                    t.amount = -amount;
+                    t.from = from;
+                    t.to = to;
+                    w.history.Add(t);
+                    walletList[from] = w;
+                }
+
+                w = walletList[to];
                 t = new Transaction();
                 t.timestamp = timestamp;
-                t.amount = -amount;
+                t.amount = amount;
                 t.from = from;
                 t.to = to;
                 w.history.Add(t);
-                walletList[from] = w;
+                walletList[to] = w;
             }
-
-            w = walletList[to];
-            t = new Transaction();
-            t.timestamp = timestamp;
-            t.amount = amount;
-            t.from = from;
-            t.to = to;
-            w.history.Add(t);
-            walletList[to] = w;
         }
 
     }
