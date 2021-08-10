@@ -16,6 +16,11 @@ namespace web_app_server
         public static uint randSeed;
         public static Object randLock = new Object();
 
+
+        public static string dbUser = "root";
+        public static string dbPassword = "walletDYN1042";
+        public static string dbSchema = "dynwallet";
+
         public class WebPack
         {
             public string hash;
@@ -24,6 +29,45 @@ namespace web_app_server
         }
 
         public static Dictionary<string, WebPack> webPacks = new Dictionary<string, WebPack>();
+
+        public class Transaction
+        {
+            public int timestamp;
+            public decimal amount;
+            public string from;
+            public string to;
+        }
+        public class Wallet
+        {
+            public string address;
+            public decimal balance;
+            public List<Transaction> history;
+            public Dictionary<string,UTXO> utxo;
+        }
+
+        public class TX
+        {
+            public string hash;
+            public int vout;
+            public decimal amount;
+            public string address;
+            public bool spent;
+        }
+
+        public class UTXO
+        {
+            public string hash;
+            public int vout;
+            public decimal amount;
+        }
+
+        public static Dictionary<string, TX> txList = new Dictionary<string, TX>();
+        public static Dictionary<string, Wallet> walletList = new Dictionary<string, Wallet>();
+
+
+        public static int lastBlock;
+
+        public static bool useDatabase = false;
 
 
         public static uint RandomNum(uint x)
@@ -150,6 +194,111 @@ namespace web_app_server
                     result = webPacks[hash].pages[page];
 
             return result;
+        }
+
+
+        public static void saveTx(string txID, int n, decimal amount, string address)
+        {
+            amount *= 100000000m;
+
+            TX tx = new TX();
+            tx.hash = txID;
+            tx.vout = n;
+            tx.amount = amount;
+            tx.address = address;
+            tx.spent = false;
+
+            string key = txID + n.ToString();
+
+            txList.Add(key, tx);
+
+
+            Wallet w;
+            if (walletList.ContainsKey(address))
+            {
+                w = walletList[address];
+            }
+            else
+            {
+                w = new Wallet();
+                w.address = address;
+                w.balance = 0;
+                w.history = new List<Transaction>();
+                w.utxo = new Dictionary<string, UTXO>();
+            }
+
+            UTXO u = new UTXO();
+            u.hash = txID;
+            u.vout = n;
+            u.amount = amount;
+            w.utxo.Add(key, u);
+            walletList[address] = w;
+
+        }
+
+        public static void spendTransaction(string txid, int vout)
+        {
+            string key = txid + vout.ToString();
+            if (txList.ContainsKey(key))
+            {
+                TX tx = txList[key];
+                tx.spent = true;
+                txList[key] = tx;
+
+                if (walletList[tx.address].utxo.ContainsKey(key))
+                    walletList[tx.address].utxo.Remove(key);
+                else
+                    Console.WriteLine("Error: didnt find utxo in wallet " + txid + "  " + vout);
+            }
+            else
+                Console.WriteLine("Error: didnt find utxo " + txid + "  " + vout);
+
+        }
+
+        public static void updateWalletBalance(string address, decimal amount)
+        {
+
+            if (walletList.ContainsKey(address))
+            {
+                Wallet w = walletList[address];
+                w.balance += amount;
+                walletList[address] = w;
+            }
+            else
+            {
+                Wallet w = new Wallet();
+                w.address = address;
+                w.balance = amount;
+                w.history = new List<Transaction>();
+                w.utxo = new Dictionary<string, UTXO>();
+                walletList.Add(address, w);
+            }
+        }
+
+        public static void addWalletHistory(string from, string to, int timestamp, decimal amount)
+        {
+            Wallet w;
+            Transaction t;
+
+            if (from != "coinbase") { 
+                w = walletList[from];
+                t = new Transaction();
+                t.timestamp = timestamp;
+                t.amount = -amount;
+                t.from = from;
+                t.to = to;
+                w.history.Add(t);
+                walletList[from] = w;
+            }
+
+            w = walletList[to];
+            t = new Transaction();
+            t.timestamp = timestamp;
+            t.amount = amount;
+            t.from = from;
+            t.to = to;
+            w.history.Add(t);
+            walletList[to] = w;
         }
 
     }

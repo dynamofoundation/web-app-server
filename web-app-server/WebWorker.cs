@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace web_app_server
 {
@@ -32,20 +33,109 @@ namespace web_app_server
                 Console.WriteLine(request.RawUrl);
 
                 //array to store the response in
-                byte[] binaryData = Encoding.ASCII.GetBytes("Internal error."); ;
+                byte[] binaryData = Encoding.ASCII.GetBytes("Internal error.");
+
+                //TODO - clean up these program logic paths
+
+                bool processedAPI = false;
+                if (path[0].StartsWith("get_balance"))
+                {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string address = args["addr"];
+
+                    if (Global.walletList.ContainsKey(address))
+                        binaryData = Encoding.ASCII.GetBytes(Global.walletList[address].balance.ToString("0"));
+                    processedAPI = true;
+                }
+
+                else if (path[0].StartsWith("get_utxo"))
+                {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string address = args["addr"];
+                    int start = Convert.ToInt32(args["start"]);
+
+                    string result = "";
+
+                    if (Global.walletList.ContainsKey(address))
+                    {
+                        int num = 0;
+                        int ptr = 0;
+
+                        foreach (Global.UTXO utxo in Global.walletList[address].utxo.Values) {
+                            if (ptr >= start)
+                            {
+
+                                result += utxo.hash + "," +
+                                    utxo.vout + "," +
+                                    utxo.amount + "\n";
+                                ptr++;
+                                num++;
+                            }
+                            else
+                                ptr++;
+                            if (num == 100)
+                                break;
+                        }
+
+                        binaryData = Encoding.ASCII.GetBytes(result);
+                    }
+                    processedAPI = true;
+                }
+
+                else if (path[0].StartsWith("get_transactions"))
+                {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string address = args["addr"];
+                    int start = Convert.ToInt32(args["start"]);
+
+                    string result = "";
+
+                    if (Global.walletList.ContainsKey(address)) {
+
+                        int num = 0;
+                        int ptr = start;
+
+                        while ((num < 100) && (ptr < Global.walletList[address].history.Count))
+                        {
+                            result += Global.walletList[address].history[ptr].timestamp + "," +
+                                Global.walletList[address].history[ptr].from + "," +
+                                Global.walletList[address].history[ptr].to + "," +
+                                Global.walletList[address].history[ptr].amount + "\n";
+                            ptr++;
+                            num++;
+                        }
+
+                        binaryData = Encoding.ASCII.GetBytes(result);
+                    }
+
+                    processedAPI = true;
+                }
+
+                else if (path[0].StartsWith("send_coins"))
+                {
+
+                    processedAPI = true;
+                }
+
+
 
                 bool valid = true;
-                if (path[0].Length != 64)
+                if (!processedAPI)
                 {
-                    binaryData = Encoding.ASCII.GetBytes("Invalid hash format, must be 64 hexadecimal characters.");
-                    valid = false;
-                }
+                    if (path[0].Length != 64)
+                    {
+                        binaryData = Encoding.ASCII.GetBytes("Invalid hash format, must be 64 hexadecimal characters.");
+                        valid = false;
+                    }
 
-                if (!ValidHex(path[0]))
-                {
-                    binaryData = Encoding.ASCII.GetBytes("Invalid hash format, must be 64 hexadecimal characters.");
-                    valid = false;
+                    if (!ValidHex(path[0]))
+                    {
+                        binaryData = Encoding.ASCII.GetBytes("Invalid hash format, must be 64 hexadecimal characters.");
+                        valid = false;
+                    }
                 }
+                else
+                    valid = false;
 
                 if (valid)
                 {
@@ -135,6 +225,20 @@ namespace web_app_server
                 Console.WriteLine(e.StackTrace);
 
             }
+        }
+
+
+        public Dictionary<string,string> ParseArgs (string data)
+        {
+            Dictionary<string, string> args = new Dictionary<string, string>();
+            string[] arguments = data.Substring(1).Split('&');
+            for (int i = 0; i < arguments.Length; i++)
+            {
+                string[] param = arguments[i].Split("=");
+                args.Add(param[0], param[1]);
+            }
+
+            return args;
         }
 
         public string ReadString ( byte[] data, ref int offset)

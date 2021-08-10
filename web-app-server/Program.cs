@@ -17,6 +17,11 @@ namespace web_app_server
             Thread t1 = new Thread(new ThreadStart(server.run));
             t1.Start();
 
+            Console.WriteLine("Starting block scanner...");
+            BlockScanner scanner = new BlockScanner();
+            t1 = new Thread(new ThreadStart(scanner.run));
+            t1.Start();
+
 
             while (!Global.Shutdown)
             {
