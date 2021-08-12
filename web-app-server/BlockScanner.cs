@@ -26,9 +26,9 @@ namespace web_app_server
             while (!Global.Shutdown)
             {
                 UInt32 currentHeight = getCurrentHeight();
-                if (lastBlock < currentHeight - 10)
+                if (lastBlock < currentHeight - 3)
                 {
-                    while (lastBlock < currentHeight - 10)
+                    while (lastBlock < currentHeight - 3)
                     {
                         lastBlock++;
                         parseBlock(lastBlock);
@@ -69,7 +69,8 @@ namespace web_app_server
                 File.WriteAllText(filename, JsonConvert.SerializeObject(dBlockResult));
             }
 
-            int timestamp = dBlockResult["time"];
+            uint timestamp = dBlockResult["time"];
+            Global.lastBlockTimestamp = timestamp;
 
             foreach (var tx in dBlockResult["tx"])
             {

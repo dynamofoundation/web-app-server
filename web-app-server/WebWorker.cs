@@ -47,6 +47,8 @@ namespace web_app_server
                     {
                         if (Global.walletList.ContainsKey(address))
                             binaryData = Encoding.ASCII.GetBytes(Global.walletList[address].balance.ToString("0"));
+                        else
+                            binaryData = Encoding.ASCII.GetBytes("0");
                         processedAPI = true;
                     }
                 }
@@ -55,7 +57,7 @@ namespace web_app_server
                 {
                     Dictionary<string, string> args = ParseArgs(request.Url.Query);
                     string address = args["addr"];
-                    int start = Convert.ToInt32(args["start"]);
+                    UInt64 targetAmount = Convert.ToUInt64(args["amount"]);
 
                     string result = "";
 
@@ -63,23 +65,20 @@ namespace web_app_server
                     {
                         if (Global.walletList.ContainsKey(address))
                         {
-                            int num = 0;
+                            UInt64 total = 0;
                             int ptr = 0;
 
                             foreach (Global.UTXO utxo in Global.walletList[address].utxo.Values)
                             {
-                                if (ptr >= start)
+                                result += utxo.hash + "," + utxo.vout + "," + utxo.amount.ToString("0") + "\n";
+                                total += Convert.ToUInt64(utxo.amount);
+                                ptr++;
+                                if (ptr >= 500)
                                 {
-
-                                    result += utxo.hash + "," +
-                                        utxo.vout + "," +
-                                        utxo.amount + "\n";
-                                    ptr++;
-                                    num++;
+                                    result = "Too many inputs.";
+                                    break;
                                 }
-                                else
-                                    ptr++;
-                                if (num == 100)
+                                if (total >= targetAmount)
                                     break;
                             }
 
@@ -102,15 +101,28 @@ namespace web_app_server
                         if (Global.walletList.ContainsKey(address))
                         {
 
+                            result = result + Global.lastBlock.ToString() + "\n";
+                            result = result + Global.lastBlockTimestamp.ToString() + "\n";
+
                             int num = 0;
                             int ptr = start;
 
-                            while ((num < 100) && (ptr < Global.walletList[address].history.Count))
+                            while ((num < 10) && (ptr < Global.walletList[address].history.Count))
                             {
+                                string action = "";
+                                if (Global.walletList[address].history[ptr].from == "coinbase")
+                                    action = "Mine";
+                                else
+                                {
+                                    if (Global.walletList[address].history[ptr].amount < 0)
+                                        action = "Send";
+                                    else
+                                        action = "Recv";
+                                }
                                 result += Global.walletList[address].history[ptr].timestamp + "," +
-                                    Global.walletList[address].history[ptr].from + "," +
+                                    action + "," +
                                     Global.walletList[address].history[ptr].to + "," +
-                                    Global.walletList[address].history[ptr].amount + "\n";
+                                    Global.walletList[address].history[ptr].amount.ToString("0") + "\n";
                                 ptr++;
                                 num++;
                             }

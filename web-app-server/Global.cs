@@ -32,7 +32,7 @@ namespace web_app_server
 
         public class Transaction
         {
-            public int timestamp;
+            public uint timestamp;
             public decimal amount;
             public string from;
             public string to;
@@ -66,6 +66,7 @@ namespace web_app_server
 
 
         public static int lastBlock;
+        public static uint lastBlockTimestamp;
 
         public static bool useDatabase = false;
 
@@ -214,6 +215,9 @@ namespace web_app_server
                 txList.Add(key, tx);
 
 
+            if (address == "dy1q752fqtt6w02jc5sp8hfn0yafvrt4sx3y0cgm76")
+                Console.WriteLine("");
+
             lock (walletList)
             {
                 Wallet w;
@@ -254,7 +258,10 @@ namespace web_app_server
                     lock (walletList)
                     {
                         if (walletList[tx.address].utxo.ContainsKey(key))
+                        {
                             walletList[tx.address].utxo.Remove(key);
+                            updateWalletBalance(tx.address, -tx.amount);
+                        }
                         else
                             Console.WriteLine("Error: didnt find utxo in wallet " + txid + "  " + vout);
                     }
@@ -267,6 +274,9 @@ namespace web_app_server
 
         public static void updateWalletBalance(string address, decimal amount)
         {
+
+            if (address == "dy1q752fqtt6w02jc5sp8hfn0yafvrt4sx3y0cgm76")
+                Console.Write("");
 
             lock (walletList)
             {
@@ -288,10 +298,13 @@ namespace web_app_server
             }
         }
 
-        public static void addWalletHistory(string from, string to, int timestamp, decimal amount)
+        public static void addWalletHistory(string from, string to, uint timestamp, decimal amount)
         {
             Wallet w;
             Transaction t;
+
+            if (to == from)     //exclude change  (assumes user doesnt send coins to themselves)
+                return;
 
             lock (walletList)
             {
