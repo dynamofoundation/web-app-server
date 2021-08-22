@@ -6,6 +6,7 @@ using System.Text;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 
 namespace web_app_server
 {
@@ -136,8 +137,8 @@ namespace web_app_server
 
                 else if (path[0].StartsWith("send_tx"))
                 {
-                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
-                    string hex = args["hex"];
+                    string[] args = text.Split("=");
+                    string hex = args[1];
 
                     string result = "error";
 
@@ -160,6 +161,96 @@ namespace web_app_server
                     processedAPI = true;
                 }
 
+                else if (path[0].StartsWith("get_nft_asset_class_list"))
+                {
+
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string addr = args["addr"];
+
+                    string result = "error";
+
+                    string command = "{ \"id\": 0, \"method\" : \"listnft\", \"params\" : [ \"list-class\", \"" + addr + "\", 0 ] }";
+
+                    try
+                    {
+                        string rpcResult = rpcExec(command);
+                        dynamic jRPCResult = JObject.Parse(rpcResult);
+                        result = jRPCResult.result;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(e.StackTrace);
+                    }
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+
+                }
+
+                else if (path[0].StartsWith("get_nft_asset_class"))
+                {
+
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string classHash = args["hash"];
+
+                    string result = "error";
+
+                    string command = "{ \"id\": 0, \"method\" : \"getnft\", \"params\" : [ \"get-class\", \"" + classHash + "\", 0 ] }";
+
+                    try
+                    {
+                        string rpcResult = rpcExec(command);
+                        dynamic jRPCResult = JObject.Parse(rpcResult);
+                        result = jRPCResult.result;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(e.StackTrace);
+                    }
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+
+                }
+
+                else if (path[0].StartsWith("submit_nft"))
+                {
+
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string nftcommand = args["command"];
+                    string ownerAddr = args["ownerAddr"];
+                    string txID = args["txID"];
+
+                    string[] body = text.Split("=");
+                    string nftRawData = body[1];
+
+
+                    string result = "error";
+
+                    string command = "{ \"id\": 0, \"method\" : \"submitnft\", \"params\" : [ \"" + nftcommand + "\", \"" + nftRawData + "\", \"" + ownerAddr + "\", \"" + txID + "\", \"\" ] }";
+
+
+                    try
+                    {
+                        string rpcResult = rpcExec(command);
+                        dynamic jRPCResult = JObject.Parse(rpcResult);
+                        result = jRPCResult.result;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(e.StackTrace);
+                    }
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+
+                }
 
 
                 bool valid = true;
@@ -328,6 +419,21 @@ namespace web_app_server
         }
 
 
+        public byte[] HexToByte(string data)
+        {
+            data = data.ToUpper();
+            byte[] result = new byte[data.Length / 2];
+            for (int i = 0; i < data.Length; i += 2)
+            {
+                byte hi = hex(data[i]);
+                byte lo = hex(data[i + 1]);
+                result[i / 2] = (byte)(hi * 16 + lo);
+            }
+
+            return result;
+        }
+
+
         public static string rpcExec(string command)
         {
             webRequest = (HttpWebRequest)WebRequest.Create(Global.FullNodeRPC());
@@ -378,19 +484,7 @@ namespace web_app_server
             return result;
         }
 
-        public byte[] HexToByte(string data)
-        {
-            data = data.ToUpper();
-            byte[] result = new byte[data.Length / 2];
-            for (int i = 0; i < data.Length; i += 2)
-            {
-                byte hi = hex(data[i]);
-                byte lo = hex(data[i + 1]);
-                result[i / 2] = (byte)(hi * 16 + lo);
-            }
 
-            return result;
-        }
 
         public byte hex(char data)
         {
