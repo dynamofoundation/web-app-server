@@ -197,7 +197,7 @@ namespace web_app_server
 
                     string result = "error";
 
-                    string command = "{ \"id\": 0, \"method\" : \"getnft\", \"params\" : [ \"get-class\", \"" + classHash + "\", 0 ] }";
+                    string command = "{ \"id\": 0, \"method\" : \"getnft\", \"params\" : [ \"get-class\", \"" + classHash + "\" ] }";
 
                     try
                     {
@@ -224,6 +224,9 @@ namespace web_app_server
                     string nftcommand = args["command"];
                     string ownerAddr = args["ownerAddr"];
                     string txID = args["txID"];
+                    string assetClassID = "";
+                    if (args.ContainsKey("assetClass"))
+                        assetClassID = args["assetClass"];
 
                     string[] body = text.Split("=");
                     string nftRawData = body[1];
@@ -231,7 +234,7 @@ namespace web_app_server
 
                     string result = "error";
 
-                    string command = "{ \"id\": 0, \"method\" : \"submitnft\", \"params\" : [ \"" + nftcommand + "\", \"" + nftRawData + "\", \"" + ownerAddr + "\", \"" + txID + "\", \"\" ] }";
+                    string command = "{ \"id\": 0, \"method\" : \"submitnft\", \"params\" : [ \"" + nftcommand + "\", \"" + nftRawData + "\", \"" + ownerAddr + "\", \"" + txID + "\", \"" + assetClassID +"\" ] }";
 
 
                     try
