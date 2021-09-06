@@ -59,35 +59,17 @@ namespace web_app_server
                     Dictionary<string, string> args = ParseArgs(request.Url.Query);
                     string address = args["addr"];
                     UInt64 targetAmount = Convert.ToUInt64(args["amount"]);
+                    bool sendMax = false;
+                    if (args.ContainsKey("max"))
+                        sendMax = true;
 
-                    string result = "";
+                    string result = WebWorker.getUTXO(address, targetAmount, sendMax);
+                    binaryData = Encoding.ASCII.GetBytes(result);
 
-                    lock (Global.walletList)
-                    {
-                        if (Global.walletList.ContainsKey(address))
-                        {
-                            UInt64 total = 0;
-                            int ptr = 0;
-
-                            foreach (Global.UTXO utxo in Global.walletList[address].utxo.Values)
-                            {
-                                result += utxo.hash + "," + utxo.vout + "," + utxo.amount.ToString("0") + "\n";
-                                total += Convert.ToUInt64(utxo.amount);
-                                ptr++;
-                                if (ptr >= 500)
-                                {
-                                    result = "Too many inputs.";
-                                    break;
-                                }
-                                if (total >= targetAmount)
-                                    break;
-                            }
-
-                            binaryData = Encoding.ASCII.GetBytes(result);
-                        }
-                        processedAPI = true;
-                    }
+                    processedAPI = true;
                 }
+
+
 
                 else if (path[0].StartsWith("get_transactions"))
                 {
@@ -254,9 +236,33 @@ namespace web_app_server
                     processedAPI = true;
 
                 }
+                else if (path[0].StartsWith("submit_swap"))
+                {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string dynAddr = args["dyn_addr"];
+                    string wdynAddr = args["wdyn_addr"];
+                    string amount = args["amt"];
+                    string action = args["action"];
+
+                    string result = "error";
+
+                    try
+                    {
+                        result = Database.SaveSwap(dynAddr, wdynAddr, Convert.ToInt64(amount), action).ToString();
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(e.StackTrace);
+                    }
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+                }
 
 
-                bool valid = true;
+                    bool valid = true;
                 if (!processedAPI)
                 {
                     if (path[0].Length != 64)
@@ -496,6 +502,63 @@ namespace web_app_server
                 return (byte)(data - '0');
             else
                 return (byte)((data - 'A') + 10);
+        }
+
+        public static string getUTXO(string address, UInt64 targetAmount, bool sendMax)
+        {
+
+            string result = "";
+            lock (Global.walletList)
+            {
+                if (Global.walletList.ContainsKey(address))
+                {
+                    UInt64 total = 0;
+                    int ptr = 0;
+
+                    List<Global.UTXO> outputsSelected = new List<Global.UTXO>();
+                    bool transactionOK = true;
+                    foreach (Global.UTXO utxo in Global.walletList[address].utxo.Values)
+                    {
+                        bool outputOK = true;
+
+                        if (utxo.pendingSpend)
+                            outputOK = false;
+
+                        if ((utxo.isCoinbase) && (Global.currentBlockHeight - utxo.blockHeight < 10))
+                            outputOK = false;
+
+                        if (outputOK)
+                        {
+                            outputsSelected.Add(utxo);
+                            result += utxo.hash + "," + utxo.vout + "," + utxo.amount.ToString("0") + "\n";
+                            total += Convert.ToUInt64(utxo.amount);
+                            ptr++;
+                            if (ptr >= 500)
+                            {
+                                if (!sendMax)
+                                {
+                                    result = "Too many inputs.";
+                                    transactionOK = false;
+                                    break;
+                                }
+                                else
+                                    break;
+                            }
+                            if (total >= targetAmount)
+                                break;
+                        }
+                    }
+
+                    if (transactionOK)
+                    {
+                        foreach (Global.UTXO u in outputsSelected)
+                            u.pendingSpend = true;
+                    }
+
+                }
+            }
+            return result;
+
         }
 
 

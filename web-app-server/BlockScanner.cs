@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -21,14 +22,33 @@ namespace web_app_server
             if (Global.useDatabase)
                 lastBlock = (UInt32)Convert.ToInt32(Database.getSetting("last_block"));
             else
-                lastBlock = 0;
+            {
+                lastBlock = Convert.ToUInt32(Database.getSetting("last_dyn_checkpoint"));
+
+                byte[] _ByteArray = File.ReadAllBytes("wallet.dat");
+                System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream(_ByteArray);
+                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                Global.walletList = (Dictionary<string, Global.Wallet>)_BinaryFormatter.Deserialize(_MemoryStream);
+
+
+                _ByteArray = File.ReadAllBytes("tx.dat");
+                _MemoryStream = new System.IO.MemoryStream(_ByteArray);
+                _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                Global.txList = (Dictionary<string, Global.TX>)_BinaryFormatter.Deserialize(_MemoryStream);
+
+                _MemoryStream.Close();
+                _MemoryStream.Dispose();
+                _MemoryStream = null;
+                _ByteArray = null;
+            }
 
             while (!Global.Shutdown)
             {
                 UInt32 currentHeight = getCurrentHeight();
+                Global.currentBlockHeight = (int)currentHeight;
                 if (lastBlock < currentHeight - 3)
                 {
-                    while (lastBlock < currentHeight - 3)
+                    while ((lastBlock < currentHeight - 3) && (!Global.Shutdown))
                     {
                         lastBlock++;
                         parseBlock(lastBlock);
@@ -36,6 +56,35 @@ namespace web_app_server
                             Console.WriteLine("Parsing block: " + lastBlock);
                         if (Global.useDatabase)
                             Database.setSetting("last_block", lastBlock.ToString());
+                        if (lastBlock % 5000 == 0)
+                            if (lastBlock > Convert.ToInt32(Database.getSetting("last_dyn_checkpoint")))
+                            {
+                                System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream();
+                                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                                _BinaryFormatter.Serialize(_MemoryStream, Global.walletList);
+                                byte[] _ByteArray = _MemoryStream.ToArray();
+                                System.IO.FileStream _FileStream = new System.IO.FileStream("wallet.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                                _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
+                                _FileStream.Close();
+                                _MemoryStream.Close();
+                                _MemoryStream.Dispose();
+                                _MemoryStream = null;
+                                _ByteArray = null;
+
+                                _MemoryStream = new System.IO.MemoryStream();
+                                _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                                _BinaryFormatter.Serialize(_MemoryStream, Global.txList);
+                                _ByteArray = _MemoryStream.ToArray();
+                                _FileStream = new System.IO.FileStream("tx.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+                                _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
+                                _FileStream.Close();
+                                _MemoryStream.Close();
+                                _MemoryStream.Dispose();
+                                _MemoryStream = null;
+                                _ByteArray = null;
+
+                                Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
+                            }
 
                     }
                 }
@@ -58,11 +107,11 @@ namespace web_app_server
             }
             else
             {
-                string blockHash = rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblockhash\", \"params\": [" + blockHeight + "] }");
+                string blockHash = BlockScanner.rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblockhash\", \"params\": [" + blockHeight + "] }");
 
                 dynamic dHashResult = JsonConvert.DeserializeObject<dynamic>(blockHash)["result"];
 
-                string block = rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblock\", \"params\": [\"" + dHashResult + "\", 2] }");
+                string block = BlockScanner.rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblock\", \"params\": [\"" + dHashResult + "\", 2] }");
 
                 dBlockResult = JsonConvert.DeserializeObject<dynamic>(block)["result"];
 
@@ -101,13 +150,14 @@ namespace web_app_server
 
                 }
                 foreach (var vout in tx["vout"])
+                {
                     if (!vout["scriptPubKey"]["asm"].ToString().StartsWith("OP_RETURN"))
                     {
                         bool ok = true;
-                        
+
                         if (!vout["scriptPubKey"].ContainsKey("address"))
                             ok = false;
-                        
+
                         if (ok)
                         {
                             if (Global.useDatabase)
@@ -117,20 +167,27 @@ namespace web_app_server
                             }
                             else
                             {
-                                Global.saveTx(tx["txid"].ToString(), Convert.ToInt32(vout["n"]), Convert.ToDecimal(vout["value"]), vout["scriptPubKey"]["address"].ToString());
-                                Global.updateWalletBalance( vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m);
+                                bool isCoinbase = Convert.ToInt32(vout["n"]) < 3;
+                                Global.saveTx(tx["txid"].ToString(), Convert.ToInt32(vout["n"]), Convert.ToDecimal(vout["value"]), vout["scriptPubKey"]["address"].ToString(), isCoinbase, (int)blockHeight);
+                                Global.updateWalletBalance(vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m);
                                 Global.addWalletHistory(from, vout["scriptPubKey"]["address"].ToString(), timestamp, Convert.ToDecimal(vout["value"]) * 100000000m);
+                                Swap.processWalletTX(from, vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m, blockHeight);
                             }
                         }
                     }
+
+                }
             }
+
+            if (blockHeight > Convert.ToUInt32(Database.getSetting("last_dyn_swap_block")))
+                Database.setSetting("last_dyn_swap_block", blockHeight.ToString());
 
         }
 
 
         UInt32 getCurrentHeight()
         {
-            string result = rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblockcount\", \"params\": [] }");
+            string result = BlockScanner.rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblockcount\", \"params\": [] }");
 
             dynamic dResult = JsonConvert.DeserializeObject<dynamic>(result)["result"];
 
@@ -152,34 +209,46 @@ namespace web_app_server
             return objType.GetProperty(name) != null;
         }
 
-        string rpcExec(string command)
+        public static string rpcExec(string command)
         {
-            webRequest = (HttpWebRequest)WebRequest.Create(Global.FullNodeRPC());
-            webRequest.KeepAlive = false;
+            string submitResponse = "";
 
-            var data = Encoding.ASCII.GetBytes(command);
-
-            webRequest.Method = "POST";
-            webRequest.ContentType = "application/x-www-form-urlencoded";
-            webRequest.ContentLength = data.Length;
-
-            var username = Global.FullNodeUser();
-            var password = Global.FullNodePass();
-            string encoded = System.Convert.ToBase64String(Encoding.GetEncoding("ISO-8859-1").GetBytes(username + ":" + password));
-            webRequest.Headers.Add("Authorization", "Basic " + encoded);
-
-
-            using (var stream = webRequest.GetRequestStream())
+            try
             {
-                stream.Write(data, 0, data.Length);
+                lock (Global.rpcExecLoc)
+                {
+                    webRequest = (HttpWebRequest)WebRequest.Create(Global.FullNodeRPC());
+                    webRequest.KeepAlive = false;
+
+                    var data = Encoding.ASCII.GetBytes(command);
+
+                    webRequest.Method = "POST";
+                    webRequest.ContentType = "application/x-www-form-urlencoded";
+                    webRequest.ContentLength = data.Length;
+
+                    var username = Global.FullNodeUser();
+                    var password = Global.FullNodePass();
+                    string encoded = System.Convert.ToBase64String(Encoding.GetEncoding("ISO-8859-1").GetBytes(username + ":" + password));
+                    webRequest.Headers.Add("Authorization", "Basic " + encoded);
+
+
+                    using (var stream = webRequest.GetRequestStream())
+                    {
+                        stream.Write(data, 0, data.Length);
+                    }
+
+
+                    var webresponse = (HttpWebResponse)webRequest.GetResponse();
+
+                    submitResponse = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
+
+                    webresponse.Dispose();
+                }
             }
-
-
-            var webresponse = (HttpWebResponse)webRequest.GetResponse();
-
-            string submitResponse = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
-
-            webresponse.Dispose();
+            catch (Exception ex)
+            {
+                submitResponse = "Error: " + ex.Message;
+            }
 
 
             return submitResponse;

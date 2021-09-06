@@ -16,10 +16,14 @@ namespace web_app_server
         public static uint randSeed;
         public static Object randLock = new Object();
 
+        public static Object rpcExecLoc = new Object();
+
 
         public static string dbUser = "root";
         public static string dbPassword = "walletDYN1042";
         public static string dbSchema = "dynwallet";
+
+        public static int currentBlockHeight;
 
         public class WebPack
         {
@@ -30,6 +34,7 @@ namespace web_app_server
 
         public static Dictionary<string, WebPack> webPacks = new Dictionary<string, WebPack>();
 
+        [Serializable]
         public class Transaction
         {
             public uint timestamp;
@@ -37,6 +42,8 @@ namespace web_app_server
             public string from;
             public string to;
         }
+
+        [Serializable]
         public class Wallet
         {
             public string address;
@@ -45,6 +52,7 @@ namespace web_app_server
             public Dictionary<string,UTXO> utxo;
         }
 
+        [Serializable]
         public class TX
         {
             public string hash;
@@ -54,13 +62,18 @@ namespace web_app_server
             public bool spent;
         }
 
+        [Serializable]
         public class UTXO
         {
             public string hash;
             public int vout;
             public decimal amount;
+            public bool pendingSpend;       //marked as true when selected to be spent
+            public bool isCoinbase;
+            public int blockHeight;
         }
 
+        
         public static Dictionary<string, TX> txList = new Dictionary<string, TX>();
         public static Dictionary<string, Wallet> walletList = new Dictionary<string, Wallet>();
 
@@ -118,6 +131,11 @@ namespace web_app_server
         public static string FullNodePass()
         {
             return settings["FullNodePass"];
+        }
+
+        public static string BSCScanAPIKey()
+        {
+            return settings["BSCScanAPIKey"];            
         }
 
 
@@ -198,7 +216,7 @@ namespace web_app_server
         }
 
 
-        public static void saveTx(string txID, int n, decimal amount, string address)
+        public static void saveTx(string txID, int n, decimal amount, string address, bool isCoinbase, int blockHeight)
         {
             amount *= 100000000m;
 
@@ -213,10 +231,6 @@ namespace web_app_server
 
             lock(txList)
                 txList.Add(key, tx);
-
-
-            if (address == "dy1q752fqtt6w02jc5sp8hfn0yafvrt4sx3y0cgm76")
-                Console.WriteLine("");
 
             lock (walletList)
             {
@@ -238,6 +252,9 @@ namespace web_app_server
                 u.hash = txID;
                 u.vout = n;
                 u.amount = amount;
+                u.pendingSpend = false;
+                u.isCoinbase = isCoinbase;
+                u.blockHeight = blockHeight;
                 w.utxo.Add(key, u);
                 walletList[address] = w;
             }
