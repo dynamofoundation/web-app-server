@@ -26,7 +26,7 @@ namespace web_app_server
                 int lastBSCBlock = Convert.ToInt32(Database.getSetting("last_bsc_swap_block"));
                 int currentBSCBlock = getCurrentBSCBlock();
 
-                while (lastBSCBlock != currentBSCBlock)
+                while ((lastBSCBlock != currentBSCBlock) && (!Global.Shutdown))
                 {
                     lastBSCBlock++;
                     processBlockTransactions(lastBSCBlock);
@@ -169,10 +169,10 @@ namespace web_app_server
 
                             decimal xferAmt = amt / 100000000m;
 
-                            Database.log("Swap.processWalletTX", @"/c c:\xampp\php\php php\sendtoken.php " + bscAddr + " " + xferAmt);
+                            Database.log("Swap.processWalletTX", @"/c php php\sendtoken.php " + bscAddr + " " + xferAmt);
                             Process process = new Process();
                             process.StartInfo.FileName = "cmd.exe";
-                            process.StartInfo.Arguments = @"/c c:\xampp\php\php php\sendtoken.php " + bscAddr + " " + xferAmt;
+                            process.StartInfo.Arguments = @"/c php php\sendtoken.php " + bscAddr + " " + xferAmt;
                             process.StartInfo.UseShellExecute = false;
                             process.StartInfo.RedirectStandardOutput = true;
                             process.StartInfo.RedirectStandardError = true;
