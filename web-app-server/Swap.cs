@@ -26,7 +26,7 @@ namespace web_app_server
                 int lastBSCBlock = Convert.ToInt32(Database.getSetting("last_bsc_swap_block"));
                 int currentBSCBlock = getCurrentBSCBlock();
 
-                while (lastBSCBlock != currentBSCBlock)
+                while (lastBSCBlock < currentBSCBlock)
                 {
                     lastBSCBlock++;
                     processBlockTransactions(lastBSCBlock);

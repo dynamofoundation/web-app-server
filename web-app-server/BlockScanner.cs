@@ -30,6 +30,8 @@ namespace web_app_server
                 System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
                 Global.walletList = (Dictionary<string, Global.Wallet>)_BinaryFormatter.Deserialize(_MemoryStream);
 
+                Global.clearAllPendingSpend();
+
 
                 _ByteArray = File.ReadAllBytes("tx.dat");
                 _MemoryStream = new System.IO.MemoryStream(_ByteArray);
