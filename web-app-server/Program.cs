@@ -13,6 +13,7 @@ namespace web_app_server
         static void Main(string[] args)
         {
 
+
             uint loops = 0;
 
             Global.LoadSettings();
