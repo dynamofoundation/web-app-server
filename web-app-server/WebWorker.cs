@@ -216,7 +216,7 @@ namespace web_app_server
 
                     string result = "error";
 
-                    string command = "{ \"id\": 0, \"method\" : \"submitnft\", \"params\" : [ \"" + nftcommand + "\", \"" + nftRawData + "\", \"" + ownerAddr + "\", \"" + txID + "\", \"" + assetClassID +"\" ] }";
+                    string command = "{ \"id\": 0, \"method\" : \"submitnft\", \"params\" : [ \"" + nftcommand + "\", \"" + nftRawData + "\", \"" + ownerAddr + "\", \"" + txID + "\", \"" + assetClassID + "\" ] }";
 
 
                     try
@@ -260,9 +260,35 @@ namespace web_app_server
 
                     processedAPI = true;
                 }
+                else if (path[0].StartsWith("get_tx_confirm"))
+                {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string txid = args["txid"];
+
+                    string result = "error";
+
+                    string getcommand = "{ \"id\": 0, \"method\" : \"getrawtransaction\", \"params\" : [ \"" + txid + "\", true ] }";
+
+                    try
+                    {
+                        string rpcResult = rpcExec(getcommand);
+                        dynamic jRPCResult = JObject.Parse(rpcResult);
+                        result = jRPCResult.result["confirmations"].ToString();
+                    }
+                    catch (Exception e)
+                    {
+                        //Console.WriteLine(e.Message);
+                        //Console.WriteLine(e.StackTrace);
+                        result = "0";
+                    }
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+
+                }
 
 
-                    bool valid = true;
+                bool valid = true;
                 if (!processedAPI)
                 {
                     if (path[0].Length != 64)
@@ -548,6 +574,8 @@ namespace web_app_server
                                 break;
                         }
                     }
+
+                    Console.WriteLine("found " + total);
 
                     if (transactionOK)
                     {
