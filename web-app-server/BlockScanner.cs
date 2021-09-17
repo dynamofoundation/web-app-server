@@ -123,10 +123,9 @@ namespace web_app_server
             uint timestamp = dBlockResult["time"];
             Global.lastBlockTimestamp = timestamp;
 
+            bool isCoinbase = true;
             foreach (var tx in dBlockResult["tx"])
             {
-                bool isCoinbase = true;
-
                 string from = "";
                 foreach (var vin in tx["vin"])
                 {
