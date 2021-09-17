@@ -125,6 +125,8 @@ namespace web_app_server
 
             foreach (var tx in dBlockResult["tx"])
             {
+                bool isCoinbase = true;
+
                 string from = "";
                 foreach (var vin in tx["vin"])
                 {
@@ -151,7 +153,6 @@ namespace web_app_server
                     }
 
                 }
-                bool isCoinbase = true;
                 foreach (var vout in tx["vout"])
                 {
                     if (!vout["scriptPubKey"]["asm"].ToString().StartsWith("OP_RETURN"))
@@ -178,9 +179,8 @@ namespace web_app_server
                             }
                         }
                     }
-                    isCoinbase = false; //first transaction only 
-
                 }
+                isCoinbase = false; //first transaction only 
             }
 
             if (blockHeight > Convert.ToUInt32(Database.getSetting("last_dyn_swap_block")))
