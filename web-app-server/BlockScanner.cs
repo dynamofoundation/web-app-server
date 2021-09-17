@@ -151,6 +151,7 @@ namespace web_app_server
                     }
 
                 }
+                bool isCoinbase = true;
                 foreach (var vout in tx["vout"])
                 {
                     if (!vout["scriptPubKey"]["asm"].ToString().StartsWith("OP_RETURN"))
@@ -169,7 +170,7 @@ namespace web_app_server
                             }
                             else
                             {
-                                bool isCoinbase = Convert.ToInt32(vout["n"]) < 3;
+                                //bool isCoinbase = Convert.ToInt32(vout["n"]) < 3;
                                 Global.saveTx(tx["txid"].ToString(), Convert.ToInt32(vout["n"]), Convert.ToDecimal(vout["value"]), vout["scriptPubKey"]["address"].ToString(), isCoinbase, (int)blockHeight);
                                 Global.updateWalletBalance(vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m);
                                 Global.addWalletHistory(from, vout["scriptPubKey"]["address"].ToString(), timestamp, Convert.ToDecimal(vout["value"]) * 100000000m);
@@ -177,6 +178,7 @@ namespace web_app_server
                             }
                         }
                     }
+                    isCoinbase = false; //first transaction only 
 
                 }
             }

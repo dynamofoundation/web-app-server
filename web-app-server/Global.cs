@@ -352,7 +352,10 @@ namespace web_app_server
         {
             foreach (Wallet w in walletList.Values)
                 foreach (UTXO u in w.utxo.Values)
+                {
                     u.pendingSpend = false;
+                    u.isCoinbase = false;
+                }
 
         }
 
