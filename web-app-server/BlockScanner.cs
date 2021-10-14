@@ -23,7 +23,16 @@ namespace web_app_server
                 lastBlock = (UInt32)Convert.ToInt32(Database.getSetting("last_block"));
             else
             {
-                lastBlock = Convert.ToUInt32(Database.getSetting("last_dyn_checkpoint"));
+                if (File.Exists("last_checkpoint.txt"))
+                {
+                    lastBlock = Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt"));
+                    //lastBlock = Convert.ToUInt32(Database.getSetting("last_dyn_checkpoint"));
+                }
+                else
+                {
+                    lastBlock = 0;
+                    File.WriteAllText("last_checkpoint.txt", "0");
+                }
 
                 byte[] _ByteArray = File.ReadAllBytes("wallet.dat");
                 System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream(_ByteArray);
@@ -59,7 +68,7 @@ namespace web_app_server
                         if (Global.useDatabase)
                             Database.setSetting("last_block", lastBlock.ToString());
                         if (lastBlock % 5000 == 0)
-                            if (lastBlock > Convert.ToInt32(Database.getSetting("last_dyn_checkpoint")))
+                            if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt"))))
                             {
                                 System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream();
                                 System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
@@ -85,7 +94,8 @@ namespace web_app_server
                                 _MemoryStream = null;
                                 _ByteArray = null;
 
-                                Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
+                                File.WriteAllText("last_checkpoint.txt", lastBlock.ToString());
+                                //Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
                             }
 
                     }
