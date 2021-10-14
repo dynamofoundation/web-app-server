@@ -68,7 +68,7 @@ namespace web_app_server
                         if (Global.useDatabase)
                             Database.setSetting("last_block", lastBlock.ToString());
                         if (lastBlock % 5000 == 0)
-                            if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt"))))
+                            if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt")))
                             {
                                 System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream();
                                 System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
