@@ -34,6 +34,13 @@ namespace web_app_server
                     File.WriteAllText("last_checkpoint.txt", "0");
                 }
 
+                if (!File.Exists("wallet.dat"))
+                {
+                    Global.walletList = new Dictionary<string, Global.Wallet>();
+                    Global.txList = new Dictionary<string, Global.TX>();
+                    writeDATFiles();
+                }
+
                 byte[] _ByteArray = File.ReadAllBytes("wallet.dat");
                 System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream(_ByteArray);
                 System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
@@ -70,29 +77,7 @@ namespace web_app_server
                         if (lastBlock % 5000 == 0)
                             if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt")))
                             {
-                                System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream();
-                                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                                _BinaryFormatter.Serialize(_MemoryStream, Global.walletList);
-                                byte[] _ByteArray = _MemoryStream.ToArray();
-                                System.IO.FileStream _FileStream = new System.IO.FileStream("wallet.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-                                _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
-                                _FileStream.Close();
-                                _MemoryStream.Close();
-                                _MemoryStream.Dispose();
-                                _MemoryStream = null;
-                                _ByteArray = null;
-
-                                _MemoryStream = new System.IO.MemoryStream();
-                                _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                                _BinaryFormatter.Serialize(_MemoryStream, Global.txList);
-                                _ByteArray = _MemoryStream.ToArray();
-                                _FileStream = new System.IO.FileStream("tx.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-                                _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
-                                _FileStream.Close();
-                                _MemoryStream.Close();
-                                _MemoryStream.Dispose();
-                                _MemoryStream = null;
-                                _ByteArray = null;
+                                writeDATFiles();
 
                                 File.WriteAllText("last_checkpoint.txt", lastBlock.ToString());
                                 //Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
@@ -105,6 +90,33 @@ namespace web_app_server
             
         }
 
+
+        void writeDATFiles()
+        {
+            System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream();
+            System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+            _BinaryFormatter.Serialize(_MemoryStream, Global.walletList);
+            byte[] _ByteArray = _MemoryStream.ToArray();
+            System.IO.FileStream _FileStream = new System.IO.FileStream("wallet.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+            _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
+            _FileStream.Close();
+            _MemoryStream.Close();
+            _MemoryStream.Dispose();
+            _MemoryStream = null;
+            _ByteArray = null;
+
+            _MemoryStream = new System.IO.MemoryStream();
+            _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+            _BinaryFormatter.Serialize(_MemoryStream, Global.txList);
+            _ByteArray = _MemoryStream.ToArray();
+            _FileStream = new System.IO.FileStream("tx.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
+            _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
+            _FileStream.Close();
+            _MemoryStream.Close();
+            _MemoryStream.Dispose();
+            _MemoryStream = null;
+            _ByteArray = null;
+        }
 
         void parseBlock(UInt32 blockHeight)
         {
