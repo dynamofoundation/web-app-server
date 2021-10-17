@@ -9,9 +9,9 @@ namespace web_app_server
     class Program
     {
 
-        [DllImport("kernel32.dll")]
-        static extern IntPtr GetConsoleWindow();
-
+        //[DllImport("kernel32.dll")]
+        //static extern IntPtr GetConsoleWindow();
+        
 
 
         static void Main(string[] args)
@@ -46,7 +46,7 @@ namespace web_app_server
                 Thread.Sleep(100);
                 loops++;
                 Global.UpdateRand(loops);
-                if (GetConsoleWindow() != IntPtr.Zero)
+                //if (GetConsoleWindow() != IntPtr.Zero)
                     if (Console.KeyAvailable)
                         Global.Shutdown = true;
             }
