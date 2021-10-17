@@ -71,7 +71,7 @@ namespace web_app_server
                         lastBlock++;
                         parseBlock(lastBlock);
                         if (lastBlock % 100 == 0)
-                            Console.WriteLine("Parsing block: " + lastBlock);
+                            Log.log("Parsing block: " + lastBlock);
                         if (Global.useDatabase)
                             Database.setSetting("last_block", lastBlock.ToString());
                         if (lastBlock % 5000 == 0)
@@ -162,7 +162,7 @@ namespace web_app_server
                         if (Global.txList.ContainsKey(key))
                             from = Global.txList[key].address;
                         else
-                            Console.WriteLine("ERROR TX vin not found " + key);
+                            Log.log("ERROR TX vin not found " + key);
                     }
 
                     if (vin.ContainsKey("txid"))

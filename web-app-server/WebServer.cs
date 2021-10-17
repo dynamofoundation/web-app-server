@@ -12,7 +12,7 @@ namespace web_app_server
         {
             if (!HttpListener.IsSupported)
             {
-                Console.WriteLine("HTTP Listener not supported");
+                Log.log("HTTP Listener not supported");
                 return;
             }
 
@@ -21,7 +21,7 @@ namespace web_app_server
             listener.Prefixes.Add(Global.WebServerURL());
 
             listener.Start();
-            Console.WriteLine("Listening...");
+            Log.log("HTTP Listening...");
 
             while (!Global.Shutdown)
             {

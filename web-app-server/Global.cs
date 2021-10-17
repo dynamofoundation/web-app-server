@@ -280,11 +280,11 @@ namespace web_app_server
                             updateWalletBalance(tx.address, -tx.amount);
                         }
                         else
-                            Console.WriteLine("Error: didnt find utxo in wallet " + txid + "  " + vout);
+                            Log.log("Error: didnt find utxo in wallet " + txid + "  " + vout);
                     }
                 }
                 else
-                    Console.WriteLine("Error: didnt find utxo " + txid + "  " + vout);
+                    Log.log("Error: didnt find utxo " + txid + "  " + vout);
             }
 
         }
@@ -292,8 +292,6 @@ namespace web_app_server
         public static void updateWalletBalance(string address, decimal amount)
         {
 
-            if (address == "dy1q752fqtt6w02jc5sp8hfn0yafvrt4sx3y0cgm76")
-                Console.Write("");
 
             lock (walletList)
             {
