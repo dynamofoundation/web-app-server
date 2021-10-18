@@ -214,6 +214,8 @@ namespace web_app_server
         {
             string result = BlockScanner.rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblockcount\", \"params\": [] }");
 
+            Log.log("get block count result: " + result);
+
             dynamic dResult = JsonConvert.DeserializeObject<dynamic>(result)["result"];
 
             //UInt32 returnVal = Convert.ToInt32(dResult[0].ToString());
