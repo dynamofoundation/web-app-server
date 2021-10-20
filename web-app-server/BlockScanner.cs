@@ -213,8 +213,9 @@ namespace web_app_server
                 isCoinbase = false; //first transaction only 
             }
 
-            if (blockHeight > Convert.ToUInt32(Database.getSetting("last_dyn_swap_block")))
-                Database.setSetting("last_dyn_swap_block", blockHeight.ToString());
+            if (Global.SwapEnabled())
+                if (blockHeight > Convert.ToUInt32(Database.getSetting("last_dyn_swap_block")))
+                    Database.setSetting("last_dyn_swap_block", blockHeight.ToString());
 
         }
 

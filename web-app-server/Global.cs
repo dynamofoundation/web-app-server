@@ -146,6 +146,14 @@ namespace web_app_server
                 return false;
         }
 
+        public static bool SwapEnabled()
+        {
+            if (settings.ContainsKey("SwapEnabled"))
+                return (settings["SwapEnabled"] == "true");
+            else
+                return false;
+        }
+
 
         public static string WebPackReadString (byte[] data, ref int pointer)
         {
