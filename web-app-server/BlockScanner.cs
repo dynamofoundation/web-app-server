@@ -63,30 +63,33 @@ namespace web_app_server
 
                 while (!Global.Shutdown)
                 {
-                    UInt32 currentHeight = getCurrentHeight();
-                    if (Global.Verbose()) Log.log("currentHeight: " + currentHeight);
-                    Global.currentBlockHeight = (int)currentHeight;
-                    if (lastBlock < currentHeight - 3)
+                    int currentHeight = getCurrentHeight();
+                    if (currentHeight != -1)
                     {
-                        while ((lastBlock < currentHeight - 3) && (!Global.Shutdown))
+                        if (Global.Verbose()) Log.log("currentHeight: " + currentHeight);
+                        Global.currentBlockHeight = (int)currentHeight;
+                        if (lastBlock < currentHeight - 3)
                         {
-                            lastBlock++;
-                            if (Global.Verbose()) Log.log("lastBock: " + lastBlock);
-                            parseBlock(lastBlock);
-                            if (lastBlock % 100 == 0)
-                                Log.log("Parsing block: " + lastBlock);
-                            if (Global.useDatabase)
-                                Database.setSetting("last_block", lastBlock.ToString());
-                            if (lastBlock % 5000 == 0)
-                                if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt")))
-                                {
-                                    if (Global.Verbose()) Log.log("Writing DAT file");
-                                    writeDATFiles();
+                            while ((lastBlock < currentHeight - 3) && (!Global.Shutdown))
+                            {
+                                lastBlock++;
+                                if (Global.Verbose()) Log.log("lastBock: " + lastBlock);
+                                parseBlock(lastBlock);
+                                if (lastBlock % 100 == 0)
+                                    Log.log("Parsing block: " + lastBlock);
+                                if (Global.useDatabase)
+                                    Database.setSetting("last_block", lastBlock.ToString());
+                                if (lastBlock % 5000 == 0)
+                                    if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt")))
+                                    {
+                                        if (Global.Verbose()) Log.log("Writing DAT file");
+                                        writeDATFiles();
 
-                                    File.WriteAllText("last_checkpoint.txt", lastBlock.ToString());
-                                    //Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
-                                }
+                                        File.WriteAllText("last_checkpoint.txt", lastBlock.ToString());
+                                        //Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
+                                    }
 
+                            }
                         }
                     }
                     Thread.Sleep(5000);
@@ -220,17 +223,24 @@ namespace web_app_server
         }
 
 
-        UInt32 getCurrentHeight()
+        int getCurrentHeight()
         {
             string result = BlockScanner.rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"getblockcount\", \"params\": [] }");
 
             Log.log("get block count result: " + result);
 
-            dynamic dResult = JsonConvert.DeserializeObject<dynamic>(result)["result"];
+            int iResult = -1;
 
-            //UInt32 returnVal = Convert.ToInt32(dResult[0].ToString());
+            try
+            {
+                dynamic dResult = JsonConvert.DeserializeObject<dynamic>(result)["result"];
+                iResult = dResult;
+            }
+            catch (Exception ex ) {
+            }
 
-            return dResult;
+
+            return iResult;
 
         }
 
