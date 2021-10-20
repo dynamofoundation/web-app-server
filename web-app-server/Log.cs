@@ -9,7 +9,7 @@ namespace web_app_server
     {
         public static void log(string data)
         {
-            File.AppendAllText("log.txt", data);
+            File.AppendAllText("log.txt", data + "\r\n");
         }
     }
 }

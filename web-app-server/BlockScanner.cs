@@ -17,75 +17,84 @@ namespace web_app_server
         public void run()
         {
 
-
-            UInt32 lastBlock;
-            if (Global.useDatabase)
-                lastBlock = (UInt32)Convert.ToInt32(Database.getSetting("last_block"));
-            else
+            try
             {
-                if (File.Exists("last_checkpoint.txt"))
-                {
-                    lastBlock = Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt"));
-                    //lastBlock = Convert.ToUInt32(Database.getSetting("last_dyn_checkpoint"));
-                }
+                UInt32 lastBlock;
+                if (Global.useDatabase)
+                    lastBlock = (UInt32)Convert.ToInt32(Database.getSetting("last_block"));
                 else
                 {
-                    lastBlock = 0;
-                    File.WriteAllText("last_checkpoint.txt", "0");
-                }
-
-                if (!File.Exists("wallet.dat"))
-                {
-                    Global.walletList = new Dictionary<string, Global.Wallet>();
-                    Global.txList = new Dictionary<string, Global.TX>();
-                    writeDATFiles();
-                }
-
-                byte[] _ByteArray = File.ReadAllBytes("wallet.dat");
-                System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream(_ByteArray);
-                System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                Global.walletList = (Dictionary<string, Global.Wallet>)_BinaryFormatter.Deserialize(_MemoryStream);
-
-                Global.clearAllPendingSpend();
-
-
-                _ByteArray = File.ReadAllBytes("tx.dat");
-                _MemoryStream = new System.IO.MemoryStream(_ByteArray);
-                _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                Global.txList = (Dictionary<string, Global.TX>)_BinaryFormatter.Deserialize(_MemoryStream);
-
-                _MemoryStream.Close();
-                _MemoryStream.Dispose();
-                _MemoryStream = null;
-                _ByteArray = null;
-            }
-
-            while (!Global.Shutdown)
-            {
-                UInt32 currentHeight = getCurrentHeight();
-                Global.currentBlockHeight = (int)currentHeight;
-                if (lastBlock < currentHeight - 3)
-                {
-                    while ((lastBlock < currentHeight - 3) && (!Global.Shutdown))
+                    if (File.Exists("last_checkpoint.txt"))
                     {
-                        lastBlock++;
-                        parseBlock(lastBlock);
-                        if (lastBlock % 100 == 0)
-                            Log.log("Parsing block: " + lastBlock);
-                        if (Global.useDatabase)
-                            Database.setSetting("last_block", lastBlock.ToString());
-                        if (lastBlock % 5000 == 0)
-                            if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt")))
-                            {
-                                writeDATFiles();
-
-                                File.WriteAllText("last_checkpoint.txt", lastBlock.ToString());
-                                //Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
-                            }
-
+                        lastBlock = Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt"));
+                        //lastBlock = Convert.ToUInt32(Database.getSetting("last_dyn_checkpoint"));
                     }
+                    else
+                    {
+                        lastBlock = 0;
+                        File.WriteAllText("last_checkpoint.txt", "0");
+                    }
+
+                    if (!File.Exists("wallet.dat"))
+                    {
+                        Global.walletList = new Dictionary<string, Global.Wallet>();
+                        Global.txList = new Dictionary<string, Global.TX>();
+                        writeDATFiles();
+                    }
+
+                    byte[] _ByteArray = File.ReadAllBytes("wallet.dat");
+                    System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream(_ByteArray);
+                    System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                    Global.walletList = (Dictionary<string, Global.Wallet>)_BinaryFormatter.Deserialize(_MemoryStream);
+
+                    Global.clearAllPendingSpend();
+
+
+                    _ByteArray = File.ReadAllBytes("tx.dat");
+                    _MemoryStream = new System.IO.MemoryStream(_ByteArray);
+                    _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+                    Global.txList = (Dictionary<string, Global.TX>)_BinaryFormatter.Deserialize(_MemoryStream);
+
+                    _MemoryStream.Close();
+                    _MemoryStream.Dispose();
+                    _MemoryStream = null;
+                    _ByteArray = null;
                 }
-                Thread.Sleep(5000);
+
+                while (!Global.Shutdown)
+                {
+                    UInt32 currentHeight = getCurrentHeight();
+                    if (Global.Verbose()) Log.log("currentHeight: " + currentHeight);
+                    Global.currentBlockHeight = (int)currentHeight;
+                    if (lastBlock < currentHeight - 3)
+                    {
+                        while ((lastBlock < currentHeight - 3) && (!Global.Shutdown))
+                        {
+                            lastBlock++;
+                            if (Global.Verbose()) Log.log("lastBock: " + lastBlock);
+                            parseBlock(lastBlock);
+                            if (lastBlock % 100 == 0)
+                                Log.log("Parsing block: " + lastBlock);
+                            if (Global.useDatabase)
+                                Database.setSetting("last_block", lastBlock.ToString());
+                            if (lastBlock % 5000 == 0)
+                                if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt")))
+                                {
+                                    if (Global.Verbose()) Log.log("Writing DAT file");
+                                    writeDATFiles();
+
+                                    File.WriteAllText("last_checkpoint.txt", lastBlock.ToString());
+                                    //Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
+                                }
+
+                        }
+                    }
+                    Thread.Sleep(5000);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.log("Error in BlockScanner.run, exiting: " + ex.Message);
             }
             
         }
@@ -274,6 +283,7 @@ namespace web_app_server
             }
             catch (Exception ex)
             {
+                Log.log("BlockScanner.rpcExec error: " + ex.Message);
                 submitResponse = "Error: " + ex.Message;
             }
 

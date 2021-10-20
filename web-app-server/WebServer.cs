@@ -10,30 +10,37 @@ namespace web_app_server
     {
         public void run()
         {
-            if (!HttpListener.IsSupported)
+            try
             {
-                Log.log("HTTP Listener not supported");
-                return;
+                if (!HttpListener.IsSupported)
+                {
+                    Log.log("HTTP Listener not supported");
+                    return;
+                }
+
+                HttpListener listener = new HttpListener();
+
+                listener.Prefixes.Add(Global.WebServerURL());
+
+                listener.Start();
+                Log.log("HTTP Listening...");
+
+                while (!Global.Shutdown)
+                {
+                    Global.UpdateRand(17);
+                    HttpListenerContext context = listener.GetContext();
+                    WebWorker worker = new WebWorker();
+                    worker.context = context;
+                    Thread t1 = new Thread(new ThreadStart(worker.run));
+                    t1.Start();
+                }
+
+                listener.Stop();
             }
-
-            HttpListener listener = new HttpListener();
-
-            listener.Prefixes.Add(Global.WebServerURL());
-
-            listener.Start();
-            Log.log("HTTP Listening...");
-
-            while (!Global.Shutdown)
+            catch (Exception ex)
             {
-                Global.UpdateRand(17);
-                HttpListenerContext context = listener.GetContext();
-                WebWorker worker = new WebWorker();
-                worker.context = context;
-                Thread t1 = new Thread(new ThreadStart(worker.run));
-                t1.Start();
+                Log.log("error in WebServer.run, exiting: " + ex.Message);
             }
-
-            listener.Stop();
         }
 
     }

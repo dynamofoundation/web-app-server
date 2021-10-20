@@ -46,9 +46,6 @@ namespace web_app_server
                 Thread.Sleep(100);
                 loops++;
                 Global.UpdateRand(loops);
-                //if (GetConsoleWindow() != IntPtr.Zero)
-                    if (Console.KeyAvailable)
-                        Global.Shutdown = true;
             }
 
         }

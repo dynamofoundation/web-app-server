@@ -138,6 +138,14 @@ namespace web_app_server
             return settings["BSCScanAPIKey"];            
         }
 
+        public static bool Verbose()
+        {
+            if (settings.ContainsKey("Verbose"))
+                return (settings["Verbose"] == "true");
+            else
+                return false;
+        }
+
 
         public static string WebPackReadString (byte[] data, ref int pointer)
         {
