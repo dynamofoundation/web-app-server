@@ -98,6 +98,7 @@ namespace web_app_server
             catch (Exception ex)
             {
                 Log.log("Error in BlockScanner.run, exiting: " + ex.Message);
+                Log.log(ex.StackTrace);
             }
             
         }
