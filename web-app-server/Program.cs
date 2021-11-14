@@ -30,12 +30,12 @@ namespace web_app_server
             t1 = new Thread(new ThreadStart(scanner.run));
             t1.Start();
 
-            /*
+            
             Console.WriteLine("Starting BSC block scanner...");
             Swap swap = new Swap();
             t1 = new Thread(new ThreadStart(swap.run));
             t1.Start();
-            */
+            
 
             while (!Global.Shutdown)
             {

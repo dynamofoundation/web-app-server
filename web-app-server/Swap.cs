@@ -24,17 +24,25 @@ namespace web_app_server
                 //if any block contains inbound WDYN, send out DYN
 
                 int lastBSCBlock = Convert.ToInt32(Database.getSetting("last_bsc_swap_block"));
-                int currentBSCBlock = getCurrentBSCBlock();
-
-                while (lastBSCBlock < currentBSCBlock)
+                try
                 {
-                    lastBSCBlock++;
-                    processBlockTransactions(lastBSCBlock);
-                    Database.setSetting("last_bsc_swap_block", lastBSCBlock.ToString());
-                    Console.WriteLine("Getting BSC block " + lastBSCBlock);
-                    Thread.Sleep(300);
+                    int currentBSCBlock = getCurrentBSCBlock();
+
+                    while (lastBSCBlock < currentBSCBlock)
+                    {
+                        lastBSCBlock++;
+                        processBlockTransactions(lastBSCBlock);
+                        Database.setSetting("last_bsc_swap_block", lastBSCBlock.ToString());
+                        Console.WriteLine("Getting BSC block " + lastBSCBlock);
+                        Thread.Sleep(300);
+                    }
+                    Thread.Sleep(1500);
                 }
-                Thread.Sleep(1500);
+                catch(Exception e)
+                {
+                    Console.WriteLine("Error in BSC scan: " + e.Message);
+                    Thread.Sleep(1000);
+                }
             }
 
         }
