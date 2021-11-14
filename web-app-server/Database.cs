@@ -297,5 +297,48 @@ namespace web_app_server
 
         }
 
+
+        public static void CreateWallet(string HashedPassword, string addr, string encryptedWallet, string iv)
+        {
+            string strSQL = "insert into nchw (nchw_password_hash, nchw_encrypted_wallet, nchw_iv, nchw_wallet_addr) values (@1, @2, @3, @4)";
+            MySqlConnection conn = new MySqlConnection(strConn);
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(strSQL, conn);
+            cmd.Parameters.AddWithValue("@1", HashedPassword);
+            cmd.Parameters.AddWithValue("@2", encryptedWallet);
+            cmd.Parameters.AddWithValue("@3", iv);
+            cmd.Parameters.AddWithValue("@4", addr);
+            cmd.ExecuteScalar();
+            conn.Close();
+        }
+
+
+
+        public static Dictionary<string,string> ReadNCHW(string addr)
+        {
+
+            Dictionary<string, string> result = new Dictionary<string, string>();
+
+            string strSQL = "select * from nchw where nchw_wallet_addr = @1";
+            MySqlConnection conn = new MySqlConnection(strConn);
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(strSQL, conn);
+            cmd.Parameters.AddWithValue("@1", addr);
+            MySqlDataReader reader = cmd.ExecuteReader();
+            
+            if (reader.Read())
+            {
+                for (int i = 0; i < reader.FieldCount; i++)
+                    result.Add(reader.GetName(i), reader[i].ToString());
+            }
+
+            conn.Close();
+
+
+            return result;
+
+        }
+
+
     }
 }

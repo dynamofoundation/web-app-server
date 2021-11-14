@@ -260,6 +260,7 @@ namespace web_app_server
 
                     processedAPI = true;
                 }
+
                 else if (path[0].StartsWith("get_tx_confirm"))
                 {
                     Dictionary<string, string> args = ParseArgs(request.Url.Query);
@@ -286,6 +287,199 @@ namespace web_app_server
                     processedAPI = true;
 
                 }
+
+                else if (path[0].StartsWith("nchw_create_wallet"))
+                {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string passphrase = args["passphrase"];
+
+                    string result = "error";
+
+                    string HashedPassword = Global.CreateHash(passphrase);
+
+                    string walletData = Global.GenerateWallet();
+                    string[] wallet = walletData.Split(",");
+                    string words = wallet[0];
+                    string xprv = wallet[1];
+                    string addr = wallet[2];
+
+                    SymmetricAlgorithm crypt = Aes.Create();
+                    HashAlgorithm hash = SHA256.Create();
+                    crypt.KeySize = 256;
+                    crypt.Mode = CipherMode.CBC;
+                    crypt.Key = hash.ComputeHash(Encoding.UTF8.GetBytes(passphrase));
+
+                    RNGCryptoServiceProvider provider = new RNGCryptoServiceProvider();
+                    byte[] iv = new byte[16];
+                    provider.GetBytes(iv);
+                    crypt.IV = iv;
+
+                    byte[] bytes = Encoding.UTF8.GetBytes(walletData);
+                    string encryptedWallet = "";
+
+                    using (MemoryStream memoryStream = new MemoryStream())
+                    {
+                        using (CryptoStream cryptoStream = new CryptoStream(memoryStream, crypt.CreateEncryptor(), CryptoStreamMode.Write))
+                        {
+                            cryptoStream.Write(bytes, 0, bytes.Length);
+                        }
+
+                        encryptedWallet = Global.ByteArrayToHexString(memoryStream.ToArray());
+                    }
+
+                    Database.CreateWallet(HashedPassword, addr, encryptedWallet, Global.ByteArrayToHexString(iv));
+
+                    result = addr;
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+
+                }
+
+                else if (path[0].StartsWith("nchw_get_recovery_phrase"))
+                {
+
+                    string result = "error";
+
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string passphrase = args["passphrase"];
+                    string addr = args["addr"];
+
+                    Dictionary<string, string> data = Database.ReadNCHW(addr);
+                    string pw_hash = data["nchw_password_hash"];
+                    string enc_wallet = data["nchw_encrypted_wallet"];
+                    string iv = data["nchw_iv"];
+
+                    string[] pw_split = pw_hash.Split(".");
+                    string HashedPassword = Global.CreateHash(passphrase, pw_split[0]);
+
+                    string decryptedData = "";
+
+                    if (pw_hash == HashedPassword)
+                    {
+                        SymmetricAlgorithm crypt = Aes.Create();
+                        HashAlgorithm hash = SHA256.Create();
+                        crypt.KeySize = 256;
+                        crypt.Mode = CipherMode.CBC;
+                        crypt.Key = hash.ComputeHash(Encoding.UTF8.GetBytes(passphrase));
+                        crypt.IV = Global.HexToByteArray(iv);
+
+                        byte[] encData = Global.HexToByteArray(enc_wallet);
+
+
+                        using (MemoryStream ms = new MemoryStream(encData))
+                        {
+                            using (CryptoStream csDecrypt = new CryptoStream(ms, crypt.CreateDecryptor(), CryptoStreamMode.Read))
+                            {
+                                csDecrypt.Read(encData, 0, encData.Length);
+                            }
+                            byte[] bDecrypted = ms.ToArray();
+                            decryptedData = System.Text.Encoding.UTF8.GetString(bDecrypted);
+                        }
+
+                    }
+
+                    if (decryptedData.Length > 0)
+                    {
+                        string[] sResult = decryptedData.Split(",");
+                        result = sResult[0];
+                    }
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+
+                }
+
+                else if (path[0].StartsWith("nchw_send"))
+                {
+
+                    string result = "error";
+
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string passphrase = args["passphrase"];
+                    string from_addr = args["from_addr"];
+                    string to_addr = args["to_addr"];
+                    string amt = args["amount"];
+
+
+                    Dictionary<string, string> data = Database.ReadNCHW(from_addr);
+                    string pw_hash = data["nchw_password_hash"];
+                    string enc_wallet = data["nchw_encrypted_wallet"];
+                    string iv = data["nchw_iv"];
+
+                    string[] pw_split = pw_hash.Split(".");
+                    string HashedPassword = Global.CreateHash(passphrase, pw_split[0]);
+
+                    string decryptedData = "";
+                    string xprv = "";
+
+                    if (pw_hash == HashedPassword)
+                    {
+                        SymmetricAlgorithm crypt = Aes.Create();
+                        HashAlgorithm hash = SHA256.Create();
+                        crypt.KeySize = 256;
+                        crypt.Mode = CipherMode.CBC;
+                        crypt.Key = hash.ComputeHash(Encoding.UTF8.GetBytes(passphrase));
+                        crypt.IV = Global.HexToByteArray(iv);
+
+                        byte[] encData = Global.HexToByteArray(enc_wallet);
+
+
+                        using (MemoryStream ms = new MemoryStream(encData))
+                        {
+                            using (CryptoStream csDecrypt = new CryptoStream(ms, crypt.CreateDecryptor(), CryptoStreamMode.Read))
+                            {
+                                csDecrypt.Read(encData, 0, encData.Length);
+                            }
+                            byte[] bDecrypted = ms.ToArray();
+                            decryptedData = System.Text.Encoding.UTF8.GetString(bDecrypted);
+                        }
+
+                    }
+
+                    if (decryptedData.Length > 0)
+                    {
+                        string[] sResult = decryptedData.Split(",");
+                        xprv = sResult[1];
+
+                        decimal dAmt = Convert.ToDecimal(amt) * 100000000;
+
+                        ulong lAmt = ((ulong)dAmt);
+                        string utxo = getUTXO(from_addr, lAmt, false).Replace("\n","");
+
+                        if (!utxo.StartsWith("ERROR"))
+                        {
+                            string strTransaction = Global.CreateRawTransaction(to_addr, utxo, lAmt, xprv).Replace("\n", "");
+
+                            string command = "{ \"id\": 0, \"method\" : \"sendrawtransaction\", \"params\" : [ \"" + strTransaction + "\" ] }";
+
+                            try
+                            {
+                                string rpcResult = rpcExec(command);
+                                dynamic jRPCResult = JObject.Parse(rpcResult);
+                                result = jRPCResult.result;
+                            }
+                            catch (Exception e)
+                            {
+                                Log.log(e.Message);
+                                Log.log(e.StackTrace);
+                            }
+
+                        }
+                        else
+                            result = utxo;
+
+
+                    }
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+                }
+
+
 
 
                 bool valid = true;
@@ -469,6 +663,7 @@ namespace web_app_server
         }
 
 
+
         public static string rpcExec(string command)
         {
             webRequest = (HttpWebRequest)WebRequest.Create(Global.FullNodeRPC());
@@ -563,7 +758,7 @@ namespace web_app_server
                             {
                                 if (!sendMax)
                                 {
-                                    result = "Too many inputs.";
+                                    result = "ERROR: Too many inputs.";
                                     transactionOK = false;
                                     break;
                                 }
@@ -575,6 +770,13 @@ namespace web_app_server
                         }
                     }
 
+                    if (total < targetAmount)
+                    {
+                        transactionOK = false;
+                        result = "ERROR: Insufficient balance.";
+                    }
+
+
                     Log.log("getUTXO found coins " + total);
 
                     if (transactionOK)
@@ -584,7 +786,10 @@ namespace web_app_server
                     }
 
                 }
+                else
+                    result = "ERROR: wallet not found";
             }
+
             return result;
 
         }

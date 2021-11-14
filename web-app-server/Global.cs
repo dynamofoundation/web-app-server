@@ -1,8 +1,12 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
 
 namespace web_app_server
 {
@@ -24,6 +28,11 @@ namespace web_app_server
         public static string dbSchema = "dynwallet";
 
         public static int currentBlockHeight;
+
+
+        public const int PBKDF2_SALT_SIZE = 24; // size in bytes
+        public const int PBKDF2_HASH_SIZE = 24; // size in bytes
+        public const int PBKDF2_ITERATIONS = 100000; // number of pbkdf2 iterations
 
         public class WebPack
         {
@@ -153,6 +162,15 @@ namespace web_app_server
             else
                 return false;
         }
+
+        public static bool NCHWEnabled()
+        {
+            if (settings.ContainsKey("NCHWEnabled"))
+                return (settings["NCHWEnabled"] == "true");
+            else
+                return false;
+        }
+
 
 
         public static string WebPackReadString (byte[] data, ref int pointer)
@@ -372,6 +390,121 @@ namespace web_app_server
                 }
 
         }
+
+        public static int GetHexVal(char hex)
+        {
+            int val = (int)hex;
+            //For uppercase A-F letters:
+            //return val - (val < 58 ? 48 : 55);
+            //For lowercase a-f letters:
+            //return val - (val < 58 ? 48 : 87);
+            //Or the two combined, but a bit slower:
+            return val - (val < 58 ? 48 : (val < 97 ? 55 : 87));
+        }
+
+        public static byte[] HexToByteArray(string hex)
+        {
+            if (hex.Length % 2 == 1)
+                throw new Exception("The binary key cannot have an odd number of digits");
+
+            byte[] arr = new byte[hex.Length >> 1];
+
+            for (int i = 0; i < hex.Length >> 1; ++i)
+            {
+                arr[i] = (byte)((GetHexVal(hex[i << 1]) << 4) + (GetHexVal(hex[(i << 1) + 1])));
+            }
+
+            return arr;
+        }
+
+        public static string ByteArrayToHexString(byte[] ba)
+        {
+            StringBuilder hex = new StringBuilder(ba.Length * 2);
+            foreach (byte b in ba)
+                hex.AppendFormat("{0:x2}", b);
+            return hex.ToString();
+        }
+
+
+        public static string CreateHash(string input, string iSalt = "")
+        {
+            byte[] salt;
+            if (iSalt.Length == 0)
+            {
+                // Generate a salt
+                RNGCryptoServiceProvider provider = new RNGCryptoServiceProvider();
+                salt = new byte[PBKDF2_SALT_SIZE];
+                provider.GetBytes(salt);
+            }
+            else
+            {
+                salt = HexToByteArray(iSalt);
+            }
+
+            // Generate the hash
+            Rfc2898DeriveBytes pbkdf2 = new Rfc2898DeriveBytes(input, salt, PBKDF2_ITERATIONS);
+            string strHash = ByteArrayToHexString(pbkdf2.GetBytes(PBKDF2_HASH_SIZE));
+            string strSalt = ByteArrayToHexString(salt);
+            return strSalt + "." + strHash;
+        }
+
+
+
+        public static String GenerateWallet()
+        {
+            Process p = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = @"node.exe",
+                    Arguments = "generate_wallet.js",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = @"C:\Users\user\source\repos\web-app-server\web-app-server"
+                }
+            };
+            p.Start();
+            while (!p.HasExited)
+            {
+                Thread.Sleep(100);
+            }
+            string result = p.StandardOutput.ReadToEnd();
+            string err = p.StandardError.ReadToEnd();
+
+            Console.WriteLine("Error:" + err);
+            return result;
+        }
+
+
+        public static string CreateRawTransaction (string to_addr, string utxo, ulong lAmt, string xprv)
+        {
+            Process p = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = @"node.exe",
+                    Arguments = "send_coins.js " + to_addr + " "  + lAmt + " " + utxo + " " + xprv,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = @"C:\Users\user\source\repos\web-app-server\web-app-server"
+                }
+            };
+            p.Start();
+            while (!p.HasExited)
+            {
+                Thread.Sleep(100);
+            }
+            string result = p.StandardOutput.ReadToEnd();
+            string err = p.StandardError.ReadToEnd();
+
+            Console.WriteLine("Error:" + err);
+            return result;
+        }
+
 
     }
 }

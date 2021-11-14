@@ -23,7 +23,7 @@ namespace web_app_server
                 listener.Prefixes.Add(Global.WebServerURL());
 
                 listener.Start();
-                Log.log("HTTP Listening...");
+                Log.log("HTTP Listening on " + Global.WebServerURL());
 
                 while (!Global.Shutdown)
                 {
