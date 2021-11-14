@@ -1,13 +1,17 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
+
 
 namespace web_app_server
 {
     class Program
     {
 
-
+        //[DllImport("kernel32.dll")]
+        //static extern IntPtr GetConsoleWindow();
+        
 
 
         static void Main(string[] args)
@@ -20,12 +24,12 @@ namespace web_app_server
 
             //string result = BlockScanner.rpcExec("{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"loadwallet\", \"params\": [\"foundation-prod\"] }");
 
-            Console.WriteLine("Starting Web server...");
+            Log.log("Starting Web server...");
             WebServer server = new WebServer();
             Thread t1 = new Thread(new ThreadStart(server.run));
             t1.Start();
 
-            Console.WriteLine("Starting block scanner...");
+            Log.log("Starting block scanner...");
             BlockScanner scanner = new BlockScanner();
             t1 = new Thread(new ThreadStart(scanner.run));
             t1.Start();
@@ -42,8 +46,6 @@ namespace web_app_server
                 Thread.Sleep(100);
                 loops++;
                 Global.UpdateRand(loops);
-                if (Console.KeyAvailable)
-                    Global.Shutdown = true;
             }
 
         }

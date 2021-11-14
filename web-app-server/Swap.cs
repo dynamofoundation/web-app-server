@@ -163,6 +163,9 @@ namespace web_app_server
         {
             //if any block contains inbound DYN, send out WDYN and match off swap
 
+            if (!Global.SwapEnabled())
+                return;
+
             if (blockHeight > Convert.ToUInt32(Database.getSetting("last_dyn_swap_block")))
             {
                 if (to == "dy1qm5rf4suzfplu9dwtzkmegt763akn0qcypyut5r")

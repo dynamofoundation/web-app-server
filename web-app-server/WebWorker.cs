@@ -31,7 +31,7 @@ namespace web_app_server
 
                 string[] path = request.RawUrl.Substring(1).Split("/");
 
-                Console.WriteLine(request.RawUrl);
+                Log.log(request.RawUrl);
 
                 //array to store the response in
                 byte[] binaryData = Encoding.ASCII.GetBytes("Internal error.");
@@ -134,8 +134,8 @@ namespace web_app_server
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e.Message);
-                        Console.WriteLine(e.StackTrace);
+                        Log.log(e.Message);
+                        Log.log(e.StackTrace);
                     }
 
                     binaryData = Encoding.ASCII.GetBytes(result);
@@ -161,8 +161,8 @@ namespace web_app_server
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e.Message);
-                        Console.WriteLine(e.StackTrace);
+                        Log.log(e.Message);
+                        Log.log(e.StackTrace);
                     }
 
                     binaryData = Encoding.ASCII.GetBytes(result);
@@ -189,8 +189,8 @@ namespace web_app_server
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e.Message);
-                        Console.WriteLine(e.StackTrace);
+                        Log.log(e.Message);
+                        Log.log(e.StackTrace);
                     }
 
                     binaryData = Encoding.ASCII.GetBytes(result);
@@ -227,8 +227,8 @@ namespace web_app_server
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e.Message);
-                        Console.WriteLine(e.StackTrace);
+                        Log.log(e.Message);
+                        Log.log(e.StackTrace);
                     }
 
                     binaryData = Encoding.ASCII.GetBytes(result);
@@ -252,8 +252,8 @@ namespace web_app_server
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e.Message);
-                        Console.WriteLine(e.StackTrace);
+                        Log.log(e.Message);
+                        Log.log(e.StackTrace);
                     }
 
                     binaryData = Encoding.ASCII.GetBytes(result);
@@ -361,7 +361,7 @@ namespace web_app_server
                             }
                             catch (Exception ex)
                             {
-
+                                Log.log(ex.Message);
                             }
 
                             if (webpack)
@@ -390,8 +390,8 @@ namespace web_app_server
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error in worker thread:" + e.Message);
-                Console.WriteLine(e.StackTrace);
+                Log.log("Error in worker thread:" + e.Message);
+                Log.log(e.StackTrace);
 
             }
         }
@@ -446,8 +446,8 @@ namespace web_app_server
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
-                Console.WriteLine(e.StackTrace);
+                Log.log(e.Message);
+                Log.log(e.StackTrace);
             }
 
             return result;
@@ -575,7 +575,7 @@ namespace web_app_server
                         }
                     }
 
-                    Console.WriteLine("found " + total);
+                    Log.log("getUTXO found coins " + total);
 
                     if (transactionOK)
                     {
