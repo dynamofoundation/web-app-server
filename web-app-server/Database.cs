@@ -339,6 +339,44 @@ namespace web_app_server
 
         }
 
+        public static List<Dictionary<string, string>> GetPendingSwapEvents()
+        {
+
+            List<Dictionary<string, string>> result = new List<Dictionary<string, string>>();
+
+            string strSQL = "select * from swap_event where swap_event_processed = 0";
+            MySqlConnection conn = new MySqlConnection(strConn);
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(strSQL, conn);
+            MySqlDataReader reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                Dictionary<string, string> row = new Dictionary<string, string>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                    row.Add(reader.GetName(i), reader[i].ToString());
+                result.Add(row);
+            }
+
+            conn.Close();
+
+            return result;
+        }
+
+
+        public static void MarkSwapEventProcessed(int id)
+        {
+            string strSQL = "update swap_event set swap_event_processed = 1 where swap_event_id = @1";
+            MySqlConnection conn = new MySqlConnection(strConn);
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(strSQL, conn);
+            cmd.Parameters.AddWithValue("@1", id);
+            cmd.ExecuteNonQuery();
+            conn.Close();
+        }
+
+
+
 
     }
 }

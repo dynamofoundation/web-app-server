@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,9 +18,28 @@ namespace web_app_server
 
         public void run()
         {
+
+            Thread t1 = new Thread(new ThreadStart(RunBSCScanner));
+            t1.Start();
+
+            Thread t2 = new Thread(new ThreadStart(ProcessSwapEvents));
+            t2.Start();
+
             while (!Global.Shutdown)
             {
 
+                try
+                {
+
+                    Thread.Sleep(1500);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error in BSC scan: " + e.Message);
+                    Thread.Sleep(1000);
+                }
+
+                /*
                 //get new BSC blocks
                 //if any block contains inbound WDYN, send out DYN
 
@@ -43,11 +63,106 @@ namespace web_app_server
                     Console.WriteLine("Error in BSC scan: " + e.Message);
                     Thread.Sleep(1000);
                 }
+                */
             }
 
         }
 
+        public void RunBSCScanner()
+        {
+            while (true)
+            {
 
+                Database.log("Swap.RunBSCScanner", @"/c node js\scan_bsc.js");
+                Process process = new Process();
+                process.StartInfo.FileName = "cmd.exe";
+                process.StartInfo.Arguments = @"/c node js\scan_bsc.js";
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+                process.Start();
+                //string output = process.StandardOutput.ReadToEnd();
+                //Database.log("Swap.RunBSCScanner", output);
+                string err = process.StandardError.ReadToEnd();
+                if (err.Length > 0)
+                    Database.log("Swap.RunBSCScanner", err);
+                process.WaitForExit();
+
+                Thread.Sleep(1000);
+            }
+        }
+
+        public void ProcessSwapEvents()
+        {
+            while(true)
+            {
+                List<Dictionary<string, string>> result = Database.GetPendingSwapEvents();
+
+                foreach (Dictionary<string, string> row in result) {
+                    dynamic data = JsonConvert.DeserializeObject(row["swap_event_data"]);
+                    string from = data.returnValues.from;
+                    decimal amt = Convert.ToDecimal(data.returnValues.value);
+
+                    int id = Database.findSwapWDYNtoDYN(from, amt);
+                    if (id != -1)
+                    {
+
+                        string dynAddr = Database.getSwapWDYNtoDYNDestination(id);
+                        if (dynAddr.Length > 0)
+                        {
+
+
+                            try
+                            {
+                                string strUtxo = WebWorker.getUTXO("dy1qm5rf4suzfplu9dwtzkmegt763akn0qcypyut5r", (ulong)amt, false);
+                                string utxoList = strUtxo.Replace("\n", "~");
+
+                                Database.log("Swap.processBlockTransactions", @"/c node js\send_dyn.js " + dynAddr + " " + amt + " " + utxoList);
+                                Process process = new Process();
+                                process.StartInfo.FileName = "cmd.exe";
+                                process.StartInfo.Arguments = @"/c node js\send_dyn.js " + dynAddr + " " + amt + " " + utxoList;
+                                process.StartInfo.UseShellExecute = false;
+                                process.StartInfo.RedirectStandardOutput = true;
+                                process.StartInfo.RedirectStandardError = true;
+                                process.Start();
+                                //* Read the output (or the error)
+                                string output = process.StandardOutput.ReadToEnd();
+                                Database.log("Swap.processBlockTransactions", output);
+                                string err = process.StandardError.ReadToEnd();
+                                if (err.Length > 0)
+                                    Database.log("Swap.processBlockTransactions", err);
+                                process.WaitForExit();
+                                output = output.Replace("\n", "");
+
+                                string command = "{\"jsonrpc\": \"1.0\", \"id\":\"1\", \"method\": \"sendrawtransaction\", \"params\": [\"" + output + "\"] }";
+                                Database.log("Swap.getBlockTransactions", command);
+                                string strResult = BlockScanner.rpcExec(command);
+                                Database.log("Swap.getBlockTransactions", strResult);
+                            }
+                            catch (Exception e)
+                            {
+                                Database.log("Swap.getBlockTransactions", "Error: " + e.Message);
+                            }
+
+                            Database.completeSwap(id);
+                        }
+                    }
+                    else
+                    {
+                        Database.log("Swap.processBlockTransactions", "swap not found: " + from + ", " + amt);
+                        //todo - auto refund (if not self account - would create inf loop)
+                    }
+
+
+                    Database.MarkSwapEventProcessed(Convert.ToInt32(row["swap_event_id"]));
+                }
+
+                Thread.Sleep(1000);
+            }
+        }
+
+
+        /*
         public void processBlockTransactions ( int blockNum )
         {
 
@@ -157,7 +272,7 @@ namespace web_app_server
 
             return submitResponse;
         }
-
+        */
 
         public static void processWalletTX (string from, string to, decimal amt, uint blockHeight)
         {
@@ -177,7 +292,7 @@ namespace web_app_server
                         string bscAddr = Database.getSwapDYNtoWDYNDestination(id);
                         if (bscAddr.Length > 0)
                         {
-
+                            /*
                             decimal xferAmt = amt / 100000000m;
 
                             Database.log("Swap.processWalletTX", @"/c php php\sendtoken.php " + bscAddr + " " + xferAmt);
@@ -197,6 +312,25 @@ namespace web_app_server
                             process.WaitForExit();
 
                             Database.completeSwap(id);
+                            */
+
+                            Database.log("Swap.processWalletTX", @"/c node js\send_bep20.js " + bscAddr + " " + amt);
+                            Process process = new Process();
+                            process.StartInfo.FileName = "cmd.exe";
+                            process.StartInfo.Arguments = @"/c node js\send_bep20.js " + bscAddr + " " + amt;
+                            process.StartInfo.UseShellExecute = false;
+                            process.StartInfo.RedirectStandardOutput = true;
+                            process.StartInfo.RedirectStandardError = true;
+                            process.Start();
+                            string output = process.StandardOutput.ReadToEnd();
+                            Database.log("Swap.processWalletTX", output);
+                            string err = process.StandardError.ReadToEnd();
+                            if (err.Length > 0)
+                                Database.log("Swap.processWalletTX", err);
+                            process.WaitForExit();
+
+                            Database.completeSwap(id);
+
                         }
                     }
                     else
