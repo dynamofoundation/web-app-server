@@ -292,28 +292,15 @@ namespace web_app_server
                         string bscAddr = Database.getSwapDYNtoWDYNDestination(id);
                         if (bscAddr.Length > 0)
                         {
+
+                            SendBEP sb = new SendBEP();
+                            sb.amt = amt;
+                            sb.bscAddr = bscAddr;
+                            sb.id = id;
+                            Thread t1 = new Thread(new ThreadStart(sb.send));
+                            t1.Start();
+
                             /*
-                            decimal xferAmt = amt / 100000000m;
-
-                            Database.log("Swap.processWalletTX", @"/c php php\sendtoken.php " + bscAddr + " " + xferAmt);
-                            Process process = new Process();
-                            process.StartInfo.FileName = "cmd.exe";
-                            process.StartInfo.Arguments = @"/c php php\sendtoken.php " + bscAddr + " " + xferAmt;
-                            process.StartInfo.UseShellExecute = false;
-                            process.StartInfo.RedirectStandardOutput = true;
-                            process.StartInfo.RedirectStandardError = true;
-                            process.Start();
-                            //* Read the output (or the error)
-                            string output = process.StandardOutput.ReadToEnd();
-                            Database.log("Swap.processWalletTX", output);
-                            string err = process.StandardError.ReadToEnd();
-                            if (err.Length > 0)
-                                Database.log("Swap.processWalletTX", err);
-                            process.WaitForExit();
-
-                            Database.completeSwap(id);
-                            */
-
                             Database.log("Swap.processWalletTX", @"/c node js\send_bep20.js " + bscAddr + " " + amt);
                             Process process = new Process();
                             process.StartInfo.FileName = "cmd.exe";
@@ -330,6 +317,7 @@ namespace web_app_server
                             process.WaitForExit();
 
                             Database.completeSwap(id);
+                            */
 
                         }
                     }
