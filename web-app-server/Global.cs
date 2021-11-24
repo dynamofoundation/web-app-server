@@ -462,7 +462,7 @@ namespace web_app_server
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
-                    WorkingDirectory = @"C:\Users\user\source\repos\web-app-server\web-app-server"
+                    WorkingDirectory = @"C:\Users\Administrator\source\repos\web-app-server\web-app-server"
                 }
             };
             p.Start();
@@ -490,7 +490,7 @@ namespace web_app_server
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
-                    WorkingDirectory = @"C:\Users\user\source\repos\web-app-server\web-app-server"
+                    WorkingDirectory = @"C:\Users\Administrator\source\repos\web-app-server\web-app-server"
                 }
             };
             p.Start();
