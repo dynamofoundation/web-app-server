@@ -312,6 +312,22 @@ namespace web_app_server
             conn.Close();
         }
 
+        public static void UpdateWalletData(string wallet, string newHashedPassword, string encryptedWallet, string iv)
+        {
+
+            string strSQL = "update nchw set nchw_password_hash = @hash, nchw_encrypted_wallet = @enc_wallet, nchw_iv = @iv where nchw_wallet_addr = @wallet";
+            MySqlConnection conn = new MySqlConnection(strConn);
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(strSQL, conn);
+            cmd.Parameters.AddWithValue("@hash", newHashedPassword);
+            cmd.Parameters.AddWithValue("@enc_wallet", encryptedWallet);
+            cmd.Parameters.AddWithValue("@iv", iv);
+            cmd.Parameters.AddWithValue("@wallet", wallet);
+            cmd.ExecuteNonQuery();
+            conn.Close();
+
+        }
+
 
 
         public static Dictionary<string,string> ReadNCHW(string addr)

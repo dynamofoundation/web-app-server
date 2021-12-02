@@ -171,6 +171,15 @@ namespace web_app_server
                 return false;
         }
 
+        public static string NodeJSDir()
+        {
+            if (settings.ContainsKey("NodeJSDir"))
+                return settings["NodeJSDir"];
+            else
+                return @"C:\Users\administrator\source\repos\web-app-server\web-app-server";
+
+        }
+
 
 
         public static string WebPackReadString (byte[] data, ref int pointer)
@@ -462,7 +471,7 @@ namespace web_app_server
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
-                    WorkingDirectory = @"C:\Users\Administrator\source\repos\web-app-server\web-app-server"
+                    WorkingDirectory = Global.NodeJSDir()
                 }
             };
             p.Start();
@@ -490,7 +499,7 @@ namespace web_app_server
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
-                    WorkingDirectory = @"C:\Users\Administrator\source\repos\web-app-server\web-app-server"
+                    WorkingDirectory = Global.NodeJSDir()
                 }
             };
             Log.log(p.StartInfo.Arguments);
