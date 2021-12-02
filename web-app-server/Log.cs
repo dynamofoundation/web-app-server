@@ -7,10 +7,15 @@ namespace web_app_server
 {
     public class Log
     {
+
+        public static Object logLock = new object();
         public static void log(string data)
         {
-            Console.WriteLine(data);
-            //File.AppendAllText("log.txt", data + "\r\n");
+            lock (logLock)
+            {
+                Console.WriteLine(data);
+                File.AppendAllText("log.txt", data + "\r\n");
+            }
         }
     }
 }

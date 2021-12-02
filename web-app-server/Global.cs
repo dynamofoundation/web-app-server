@@ -493,6 +493,7 @@ namespace web_app_server
                     WorkingDirectory = @"C:\Users\Administrator\source\repos\web-app-server\web-app-server"
                 }
             };
+            Log.log(p.StartInfo.Arguments);
             p.Start();
             while (!p.HasExited)
             {

@@ -447,7 +447,7 @@ namespace web_app_server
                         decimal dAmt = Convert.ToDecimal(amt) * 100000000;
 
                         ulong lAmt = ((ulong)dAmt);
-                        string utxo = getUTXO(from_addr, lAmt, false).Replace("\n","");
+                        string utxo = getUTXO(from_addr, lAmt, false).Replace("\n","~");
 
                         if (!utxo.StartsWith("ERROR"))
                         {
@@ -666,6 +666,8 @@ namespace web_app_server
 
         public static string rpcExec(string command)
         {
+
+            Log.log(command);
             webRequest = (HttpWebRequest)WebRequest.Create(Global.FullNodeRPC());
             webRequest.KeepAlive = false;
             webRequest.Timeout = 300000;
@@ -687,15 +689,24 @@ namespace web_app_server
                 stream.Write(data, 0, data.Length);
             }
 
+            string result;
 
-            var webresponse = (HttpWebResponse)webRequest.GetResponse();
+            try
+            {
+                WebResponse webresponse = (HttpWebResponse)webRequest.GetResponse();
+                result = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
+                webresponse.Dispose();
+            }
+            catch (WebException ex)
+            {
+                WebResponse webresponse = ex.Response;
+                result = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
+                Log.log("Error in RPC:" + result);
+            }
 
-            string submitResponse = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
-
-            webresponse.Dispose();
 
 
-            return submitResponse;
+            return result;
         }
 
 
@@ -765,16 +776,17 @@ namespace web_app_server
                                 else
                                     break;
                             }
-                            if (total >= targetAmount)
+                            if (total >= targetAmount + 10000m)     //add 10,000 for the fee
                                 break;
                         }
                     }
 
-                    if (total < targetAmount)
-                    {
-                        transactionOK = false;
-                        result = "ERROR: Insufficient balance.";
-                    }
+                    if (!sendMax)
+                        if (total < targetAmount)
+                        {
+                            transactionOK = false;
+                            result = "ERROR: Insufficient balance.";
+                        }
 
 
                     Log.log("getUTXO found coins " + total);
