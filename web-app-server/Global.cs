@@ -7,6 +7,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Data.SQLite;
 
 namespace web_app_server
 {
@@ -177,6 +178,23 @@ namespace web_app_server
                 return settings["NodeJSDir"];
             else
                 return @"C:\Users\administrator\source\repos\web-app-server\web-app-server";
+
+        }
+
+        public static string NFTDB()
+        {
+            if (settings.ContainsKey("NFTDB"))
+                return settings["NFTDB"];
+            else
+                return @"C:\Users\user\AppData\Roaming\Dynamo\nft.db";
+        }
+
+        public static string NFTDBKey()
+        {
+            if (settings.ContainsKey("NFTDBKey"))
+                return settings["NFTDBKey"];
+            else
+                return @"";
 
         }
 
@@ -514,6 +532,143 @@ namespace web_app_server
             return result;
         }
 
+        public static string CreateRawTransactionNFT(string to_addr, string utxo, ulong lAmt, string xprv, string opdata)
+        {
+            Process p = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = @"node.exe",
+                    Arguments = "send_coins_nft.js " + to_addr + " " + lAmt + " " + utxo + " " + xprv + " " + opdata,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = Global.NodeJSDir()
+                }
+            };
+            p.Start();
+            while (!p.HasExited)
+            {
+                Thread.Sleep(100);
+            }
+            string result = p.StandardOutput.ReadToEnd();
+            string err = p.StandardError.ReadToEnd();
+
+            Console.WriteLine("Error:" + err);
+            return result;
+        }
+
+        public static string ListNFTForAddress (string addr, int startRow, int maxCount)
+        {
+
+            List<Dictionary<string, string>> result = new List<Dictionary<string, string>>();
+
+            string DBName = Global.NFTDB();
+            System.Data.SQLite.SQLiteConnection connection = new System.Data.SQLite.SQLiteConnection(@"Data Source=" + NFTDB());
+
+
+                connection.Open();
+
+                var command = connection.CreateCommand();
+                command.CommandText = "select asset_hash, substr(asset_metadata,1,50) as metadata, asset_serial from asset where asset_owner = @1";
+                command.Parameters.AddWithValue("@1", addr);
+
+                int iRow = 0;
+                int iCount = 0;
+                using (var reader = command.ExecuteReader())
+                {
+                    while ((reader.Read()) && (iCount < maxCount))
+                    {
+                        if (iRow >= startRow)
+                        {
+                            Dictionary<string, string> row = new Dictionary<string, string>();
+                            for (int i = 0; i < reader.FieldCount; i++)
+                                row.Add(reader.GetName(i), reader[i].ToString());
+                            result.Add(row);
+                            iRow++;
+                        }
+                    }
+                }
+            connection.Close();
+
+            return JsonConvert.SerializeObject(result);
+        }
+
+
+        public static string ListNFTClassForAddress(string addr, int startRow, int maxCount)
+        {
+
+            List<Dictionary<string, string>> result = new List<Dictionary<string, string>>();
+
+            string DBName = Global.NFTDB();
+            System.Data.SQLite.SQLiteConnection connection = new System.Data.SQLite.SQLiteConnection(@"Data Source=" + NFTDB());
+
+
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText = "select asset_class_hash, substr(asset_class_metadata,1,50) as metadata, asset_class_count from asset_class where asset_class_owner = @1";
+            command.Parameters.AddWithValue("@1", addr);
+
+            int iRow = 0;
+            int iCount = 0;
+            using (var reader = command.ExecuteReader())
+            {
+                while ((reader.Read()) && (iCount < maxCount))
+                {
+                    if (iRow >= startRow)
+                    {
+                        Dictionary<string, string> row = new Dictionary<string, string>();
+                        for (int i = 0; i < reader.FieldCount; i++)
+                            row.Add(reader.GetName(i), reader[i].ToString());
+                        result.Add(row);
+                        iRow++;
+                    }
+                }
+            }
+            connection.Close();
+
+            return JsonConvert.SerializeObject(result);
+        }
+
+
+        /*
+        public static string GetNFT(string hash)
+        {
+
+            Dictionary<string, string> result = new Dictionary<string, string>();
+
+            string DBName = Global.NFTDB();
+            System.Data.SQLite.SQLiteConnection connection = new System.Data.SQLite.SQLiteConnection(@"Data Source=" + NFTDB());
+
+
+            connection.Open();
+
+            var command = connection.CreateCommand();
+            command.CommandText = "select asset_metadata, asset_binary_data from asset where asset_hash = @1";
+            command.Parameters.AddWithValue("@1", hash);
+
+            using (var reader = command.ExecuteReader())
+            {
+                if (reader.Read())
+                {
+                    result.Add("metadata", reader["asset_metadata"].ToString());
+                    byte[] encryptedData = (byte[])reader["asset_binary_data"];
+
+                    result.Add("binary", Global.ByteArrayToHexString());
+                }
+                else {
+                    result.Add("metadata", "not found");
+                    result.Add("binary", "not found");
+                }
+            }
+            connection.Close();
+
+            return JsonConvert.SerializeObject(result);
+        }
+
+        */
 
     }
 }
