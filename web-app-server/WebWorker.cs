@@ -1194,6 +1194,8 @@ namespace web_app_server
 
         public static string rpcExec(string command)
         {
+
+            Log.log(command);
             webRequest = (HttpWebRequest)WebRequest.Create(Global.FullNodeRPC());
             webRequest.KeepAlive = false;
             webRequest.Timeout = 300000;
@@ -1215,15 +1217,24 @@ namespace web_app_server
                 stream.Write(data, 0, data.Length);
             }
 
+            string result;
 
-            var webresponse = (HttpWebResponse)webRequest.GetResponse();
+            try
+            {
+                WebResponse webresponse = (HttpWebResponse)webRequest.GetResponse();
+                result = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
+                webresponse.Dispose();
+            }
+            catch (WebException ex)
+            {
+                WebResponse webresponse = ex.Response;
+                result = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
+                Log.log("Error in RPC:" + result);
+            }
 
-            string submitResponse = new StreamReader(webresponse.GetResponseStream()).ReadToEnd();
-
-            webresponse.Dispose();
 
 
-            return submitResponse;
+            return result;
         }
 
 
@@ -1293,7 +1304,7 @@ namespace web_app_server
                                 else
                                     break;
                             }
-                            if (total >= targetAmount + 10000m)
+                            if (total >= targetAmount + 10000m)     //add 10,000 for the fee
                                 break;
                         }
                     }

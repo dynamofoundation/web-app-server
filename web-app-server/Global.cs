@@ -520,6 +520,7 @@ namespace web_app_server
                     WorkingDirectory = Global.NodeJSDir()
                 }
             };
+            Log.log(p.StartInfo.Arguments);
             p.Start();
             while (!p.HasExited)
             {
