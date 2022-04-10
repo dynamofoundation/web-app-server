@@ -333,6 +333,7 @@ namespace web_app_server
                     tx.spent = true;
                     txList[key] = tx;
 
+
                     lock (walletList)
                     {
                         if (walletList[tx.address].utxo.ContainsKey(key))
@@ -343,6 +344,8 @@ namespace web_app_server
                         else
                             Log.log("Error: didnt find utxo in wallet " + txid + "  " + vout);
                     }
+
+                    txList.Remove(key);
                 }
                 else
                     Log.log("Error: didnt find utxo " + txid + "  " + vout);
@@ -500,7 +503,7 @@ namespace web_app_server
             string result = p.StandardOutput.ReadToEnd();
             string err = p.StandardError.ReadToEnd();
 
-            Console.WriteLine("Error:" + err);
+            Log.log("GenerateWallet Error:" + err);
             return result;
         }
 
@@ -529,7 +532,8 @@ namespace web_app_server
             string result = p.StandardOutput.ReadToEnd();
             string err = p.StandardError.ReadToEnd();
 
-            Console.WriteLine("Error:" + err);
+            Log.log("CreateRawTransaction Result:" + result);
+            Log.log("CreateRawTransaction Error:" + err);
             return result;
         }
 

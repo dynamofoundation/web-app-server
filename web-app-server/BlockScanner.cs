@@ -74,7 +74,14 @@ namespace web_app_server
                             {
                                 lastBlock++;
                                 if (Global.Verbose()) Log.log("lastBock: " + lastBlock);
-                                parseBlock(lastBlock);
+                                try
+                                {
+                                    parseBlock(lastBlock);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log.log("Error parsing block " + lastBlock + " " + ex.Message);
+                                }
                                 if (lastBlock % 100 == 0)
                                     Log.log("Parsing block: " + lastBlock);
                                 if (Global.useDatabase)
@@ -205,7 +212,6 @@ namespace web_app_server
                             }
                             else
                             {
-                                //bool isCoinbase = Convert.ToInt32(vout["n"]) < 3;
                                 Global.saveTx(tx["txid"].ToString(), Convert.ToInt32(vout["n"]), Convert.ToDecimal(vout["value"]), vout["scriptPubKey"]["address"].ToString(), isCoinbase, (int)blockHeight);
                                 Global.updateWalletBalance(vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m);
                                 Global.addWalletHistory(from, vout["scriptPubKey"]["address"].ToString(), timestamp, Convert.ToDecimal(vout["value"]) * 100000000m);

@@ -70,6 +70,7 @@ namespace web_app_server
 
         public void RunBSCScanner()
         {
+            /*
             while (true)
             {
 
@@ -90,6 +91,7 @@ namespace web_app_server
 
                 Thread.Sleep(1000);
             }
+            */
         }
 
         public void ProcessSwapEvents()

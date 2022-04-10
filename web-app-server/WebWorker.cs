@@ -7,6 +7,7 @@ using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Linq;
 
 namespace web_app_server
 {
@@ -88,9 +89,10 @@ namespace web_app_server
                             result = result + Global.lastBlockTimestamp.ToString() + "\n";
 
                             int num = 0;
-                            int ptr = start;
+                            int ptr = (Global.walletList[address].history.Count-1) - start;
 
-                            while ((num < 10) && (ptr < Global.walletList[address].history.Count))
+
+                            while ((num < 10) && (ptr > 0))  //Global.walletList[address].history.Count))
                             {
                                 string action = "";
                                 if (Global.walletList[address].history[ptr].from == "coinbase")
@@ -106,6 +108,55 @@ namespace web_app_server
                                     action + "," +
                                     Global.walletList[address].history[ptr].to + "," +
                                     Global.walletList[address].history[ptr].amount.ToString("0") + "\n";
+                                ptr--;
+                                num++;
+                            }
+
+                            binaryData = Encoding.ASCII.GetBytes(result);
+                        }
+
+                        processedAPI = true;
+                    }
+                }
+
+                else if (path[0].StartsWith("get_transactions_new"))
+                {
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string address = args["addr"];
+                    int start = Convert.ToInt32(args["start"]);
+
+                    string result = "";
+
+                    lock (Global.walletList)
+                    {
+                        if (Global.walletList.ContainsKey(address))
+                        {
+
+                            result = result + Global.lastBlock.ToString() + "\n";
+                            result = result + Global.lastBlockTimestamp.ToString() + "\n";
+
+                            int num = 0;
+                            int ptr = start;
+
+                            var history = Global.walletList[address].history.Select(o => new { o.amount, o.to, o.timestamp, o.from, convertedTimeStamp = DateTimeOffset.FromUnixTimeSeconds(o.timestamp).DateTime })
+                                .OrderByDescending(p => p.convertedTimeStamp).ToList();
+
+                            while ((num < 10) && (ptr < history.Count))
+                            {
+                                string action = "";
+                                if (history[ptr].from == "coinbase")
+                                    action = "Mine";
+                                else
+                                {
+                                    if (history[ptr].amount < 0)
+                                        action = "Send";
+                                    else
+                                        action = "Recv";
+                                }
+                                result += history[ptr].timestamp + "," +
+                                    action + "," +
+                                    history[ptr].to + "," +
+                                    history[ptr].amount.ToString("0") + "\n";
                                 ptr++;
                                 num++;
                             }
@@ -131,6 +182,7 @@ namespace web_app_server
                         string rpcResult = rpcExec(command);
                         dynamic jRPCResult = JObject.Parse(rpcResult);
                         result = jRPCResult.result;
+                        Log.log("SendRawTransaction result: " + rpcResult);
                     }
                     catch (Exception e)
                     {
@@ -285,7 +337,7 @@ namespace web_app_server
 
                         decimal dAmt = 10000m;
 
-                        ulong lAmt = ((ulong)dAmt);
+                        ulong lAmt = ((ulong)dAmt) + 10000;
                         string utxo = getUTXO(from_addr, lAmt, false).Replace("\n", "~");
 
                         if (!utxo.StartsWith("ERROR"))
@@ -328,7 +380,7 @@ namespace web_app_server
 
                             opdata += strHash;
 
-                            string strTransaction = Global.CreateRawTransactionNFT(from_addr, utxo, lAmt, xprv, opdata).Replace("\n", "");
+                            string strTransaction = Global.CreateRawTransactionNFT(from_addr, utxo, lAmt - 10000, xprv, opdata).Replace("\n", "");
 
                             string command = "{ \"id\": 0, \"method\" : \"sendrawtransaction\", \"params\" : [ \"" + strTransaction + "\" ] }";
 
@@ -452,7 +504,7 @@ namespace web_app_server
 
                         decimal dAmt = 10000m;
 
-                        ulong lAmt = ((ulong)dAmt);
+                        ulong lAmt = ((ulong)dAmt) + 10000;
                         string utxo = getUTXO(from_addr, lAmt, false).Replace("\n", "~");
 
                         if (!utxo.StartsWith("ERROR"))
@@ -509,7 +561,7 @@ namespace web_app_server
 
                             opdata += strHash;
 
-                            string strTransaction = Global.CreateRawTransactionNFT(from_addr, utxo, lAmt, xprv, opdata).Replace("\n", "");
+                            string strTransaction = Global.CreateRawTransactionNFT(from_addr, utxo, lAmt - 10000, xprv, opdata).Replace("\n", "");
 
                             string command = "{ \"id\": 0, \"method\" : \"sendrawtransaction\", \"params\" : [ \"" + strTransaction + "\" ] }";
 
@@ -851,76 +903,81 @@ namespace web_app_server
                     string to_addr = args["to_addr"];
                     string amt = args["amount"];
 
-
-                    Dictionary<string, string> data = Database.ReadNCHW(from_addr);
-                    string pw_hash = data["nchw_password_hash"];
-                    string enc_wallet = data["nchw_encrypted_wallet"];
-                    string iv = data["nchw_iv"];
-
-                    string[] pw_split = pw_hash.Split(".");
-                    string HashedPassword = Global.CreateHash(passphrase, pw_split[0]);
-
-                    string decryptedData = "";
-                    string xprv = "";
-
-                    if (pw_hash == HashedPassword)
+                    if (to_addr.Length > 0)
                     {
-                        SymmetricAlgorithm crypt = Aes.Create();
-                        HashAlgorithm hash = SHA256.Create();
-                        crypt.KeySize = 256;
-                        crypt.Mode = CipherMode.CBC;
-                        crypt.Key = hash.ComputeHash(Encoding.UTF8.GetBytes(passphrase));
-                        crypt.IV = Global.HexToByteArray(iv);
 
-                        byte[] encData = Global.HexToByteArray(enc_wallet);
+                        Dictionary<string, string> data = Database.ReadNCHW(from_addr);
+                        string pw_hash = data["nchw_password_hash"];
+                        string enc_wallet = data["nchw_encrypted_wallet"];
+                        string iv = data["nchw_iv"];
 
+                        string[] pw_split = pw_hash.Split(".");
+                        string HashedPassword = Global.CreateHash(passphrase, pw_split[0]);
 
-                        using (MemoryStream ms = new MemoryStream(encData))
+                        string decryptedData = "";
+                        string xprv = "";
+
+                        if (pw_hash == HashedPassword)
                         {
-                            using (CryptoStream csDecrypt = new CryptoStream(ms, crypt.CreateDecryptor(), CryptoStreamMode.Read))
+                            SymmetricAlgorithm crypt = Aes.Create();
+                            HashAlgorithm hash = SHA256.Create();
+                            crypt.KeySize = 256;
+                            crypt.Mode = CipherMode.CBC;
+                            crypt.Key = hash.ComputeHash(Encoding.UTF8.GetBytes(passphrase));
+                            crypt.IV = Global.HexToByteArray(iv);
+
+                            byte[] encData = Global.HexToByteArray(enc_wallet);
+
+
+                            using (MemoryStream ms = new MemoryStream(encData))
                             {
-                                csDecrypt.Read(encData, 0, encData.Length);
-                            }
-                            byte[] bDecrypted = ms.ToArray();
-                            decryptedData = System.Text.Encoding.UTF8.GetString(bDecrypted);
-                        }
-
-                    }
-
-                    if (decryptedData.Length > 0)
-                    {
-                        string[] sResult = decryptedData.Split(",");
-                        xprv = sResult[1];
-
-                        decimal dAmt = Convert.ToDecimal(amt) * 100000000;
-
-                        ulong lAmt = ((ulong)dAmt);
-                        string utxo = getUTXO(from_addr, lAmt, false).Replace("\n","~");
-
-                        if (!utxo.StartsWith("ERROR"))
-                        {
-                            string strTransaction = Global.CreateRawTransaction(to_addr, utxo, lAmt, xprv).Replace("\n", "");
-
-                            string command = "{ \"id\": 0, \"method\" : \"sendrawtransaction\", \"params\" : [ \"" + strTransaction + "\" ] }";
-
-                            try
-                            {
-                                string rpcResult = rpcExec(command);
-                                dynamic jRPCResult = JObject.Parse(rpcResult);
-                                result = jRPCResult.result;
-                            }
-                            catch (Exception e)
-                            {
-                                Log.log(e.Message);
-                                Log.log(e.StackTrace);
+                                using (CryptoStream csDecrypt = new CryptoStream(ms, crypt.CreateDecryptor(), CryptoStreamMode.Read))
+                                {
+                                    csDecrypt.Read(encData, 0, encData.Length);
+                                }
+                                byte[] bDecrypted = ms.ToArray();
+                                decryptedData = System.Text.Encoding.UTF8.GetString(bDecrypted);
                             }
 
                         }
-                        else
-                            result = utxo;
+
+                        if (decryptedData.Length > 0)
+                        {
+                            string[] sResult = decryptedData.Split(",");
+                            xprv = sResult[1];
+
+                            decimal dAmt = Convert.ToDecimal(amt) * 100000000;
+
+                            ulong lAmt = ((ulong)dAmt);
+                            string utxo = getUTXO(from_addr, lAmt, false).Replace("\n", "~");
+
+                            if (!utxo.StartsWith("ERROR"))
+                            {
+                                string strTransaction = Global.CreateRawTransaction(to_addr, utxo, lAmt, xprv).Replace("\n", "");
+
+                                string command = "{ \"id\": 0, \"method\" : \"sendrawtransaction\", \"params\" : [ \"" + strTransaction + "\" ] }";
+
+                                try
+                                {
+                                    string rpcResult = rpcExec(command);
+                                    dynamic jRPCResult = JObject.Parse(rpcResult);
+                                    result = jRPCResult.result;
+                                }
+                                catch (Exception e)
+                                {
+                                    Log.log(e.Message);
+                                    Log.log(e.StackTrace);
+                                }
+
+                            }
+                            else
+                                result = utxo;
 
 
+                        }
                     }
+                    else
+                        result = "Empty destination address";
 
                     binaryData = Encoding.ASCII.GetBytes(result);
 
@@ -1051,6 +1108,8 @@ namespace web_app_server
                     {
 
                         string strResponse = GetAsset(path[0]);
+                        if (strResponse == null)
+                            return;
                         if (strResponse == "error-pending-request")
                         {
                             binaryData = Encoding.ASCII.GetBytes("That asset is not available on the server and has been requested from the network.  Please try again in a few minutes");
@@ -1287,6 +1346,9 @@ namespace web_app_server
                         if ((utxo.isCoinbase) && (Global.currentBlockHeight - utxo.blockHeight < 10))
                             outputOK = false;
 
+                        if (utxo.hash == "9c4a480bc5110d937b499393d93d80659430e1016aa54d8e7de4a767b8829cde")
+                            outputOK = false;       //todo - this can be removed when a reload of the .dat files is complete
+
                         if (outputOK)
                         {
                             outputsSelected.Add(utxo);
@@ -1318,6 +1380,7 @@ namespace web_app_server
 
 
                     Log.log("getUTXO found coins " + total);
+                    Log.log(result);
 
                     if (transactionOK)
                     {

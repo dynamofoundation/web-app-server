@@ -13,7 +13,7 @@ namespace web_app_server
         {
             lock (logLock)
             {
-                Console.WriteLine(data);
+                //Console.WriteLine(data);
                 File.AppendAllText("log.txt", data + "\r\n");
             }
         }
