@@ -78,7 +78,7 @@ namespace web_app_server
             public string hash;
             public int vout;
             public decimal amount;
-            public bool pendingSpend;       //marked as true when selected to be spent
+            public DateTime pendingSpend;       //tagged with timestamp when spent
             public bool isCoinbase;
             public int blockHeight;
         }
@@ -313,7 +313,7 @@ namespace web_app_server
                 u.hash = txID;
                 u.vout = n;
                 u.amount = amount;
-                u.pendingSpend = false;
+                u.pendingSpend = DateTime.MinValue;
                 u.isCoinbase = isCoinbase;
                 u.blockHeight = blockHeight;
                 w.utxo.Add(key, u);
@@ -415,7 +415,7 @@ namespace web_app_server
             foreach (Wallet w in walletList.Values)
                 foreach (UTXO u in w.utxo.Values)
                 {
-                    u.pendingSpend = false;
+                    u.pendingSpend = DateTime.MinValue;
                     u.isCoinbase = false;
                 }
 

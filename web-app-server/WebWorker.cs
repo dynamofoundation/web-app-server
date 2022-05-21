@@ -1067,6 +1067,66 @@ namespace web_app_server
 
                 }
 
+                else if (path[0].StartsWith("nchw_vote"))
+                {
+                    string result = "error";
+
+                    /*
+                    
+
+                    Dictionary<string, string> args = ParseArgs(request.Url.Query);
+                    string passphrase = args["passphrase"];
+                    string proposal_hash = args["hash"];
+                    string vote = args["vote"];
+
+                    Dictionary<string, string> data = Database.ReadNCHW(from_addr);
+                    string pw_hash = data["nchw_password_hash"];
+                    string enc_wallet = data["nchw_encrypted_wallet"];
+                    string iv = data["nchw_iv"];
+
+                    string[] pw_split = pw_hash.Split(".");
+                    string HashedPassword = Global.CreateHash(passphrase, pw_split[0]);
+
+                    string decryptedData = "";
+                    string xprv = "";
+
+                    if (pw_hash == HashedPassword)
+                    {
+                        SymmetricAlgorithm crypt = Aes.Create();
+                        HashAlgorithm hash = SHA256.Create();
+                        crypt.KeySize = 256;
+                        crypt.Mode = CipherMode.CBC;
+                        crypt.Key = hash.ComputeHash(Encoding.UTF8.GetBytes(passphrase));
+                        crypt.IV = Global.HexToByteArray(iv);
+
+                        byte[] encData = Global.HexToByteArray(enc_wallet);
+
+
+                        using (MemoryStream ms = new MemoryStream(encData))
+                        {
+                            using (CryptoStream csDecrypt = new CryptoStream(ms, crypt.CreateDecryptor(), CryptoStreamMode.Read))
+                            {
+                                csDecrypt.Read(encData, 0, encData.Length);
+                            }
+                            byte[] bDecrypted = ms.ToArray();
+                            decryptedData = System.Text.Encoding.UTF8.GetString(bDecrypted);
+                        }
+
+                    }
+
+                    if (decryptedData.Length > 0)
+                    {
+                        string[] sResult = decryptedData.Split(",");
+                        xprv = sResult[1];
+
+                    }
+                    */
+
+                    binaryData = Encoding.ASCII.GetBytes(result);
+
+                    processedAPI = true;
+                }
+
                 bool valid = true;
                 if (!processedAPI)
                 {
@@ -1334,20 +1394,18 @@ namespace web_app_server
                     UInt64 total = 0;
                     int ptr = 0;
 
+                    DateTime now = DateTime.Now;
                     List<Global.UTXO> outputsSelected = new List<Global.UTXO>();
                     bool transactionOK = true;
                     foreach (Global.UTXO utxo in Global.walletList[address].utxo.Values)
                     {
                         bool outputOK = true;
 
-                        if (utxo.pendingSpend)
+                        if ((now - utxo.pendingSpend).TotalSeconds < 180)
                             outputOK = false;
 
                         if ((utxo.isCoinbase) && (Global.currentBlockHeight - utxo.blockHeight < 10))
                             outputOK = false;
-
-                        if (utxo.hash == "9c4a480bc5110d937b499393d93d80659430e1016aa54d8e7de4a767b8829cde")
-                            outputOK = false;       //todo - this can be removed when a reload of the .dat files is complete
 
                         if (outputOK)
                         {
@@ -1385,7 +1443,7 @@ namespace web_app_server
                     if (transactionOK)
                     {
                         foreach (Global.UTXO u in outputsSelected)
-                            u.pendingSpend = true;
+                            u.pendingSpend = now;
                     }
 
                 }
