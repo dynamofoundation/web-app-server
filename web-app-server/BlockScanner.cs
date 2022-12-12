@@ -143,7 +143,7 @@ namespace web_app_server
 
             dynamic dBlockResult = null;
 
-            string filename = "blocks\\block" + blockHeight + ".dat";
+            string filename = "d:\\blocks\\block" + blockHeight + ".dat";
             if (File.Exists(filename))
             {
                 string data = File.ReadAllText(filename);
