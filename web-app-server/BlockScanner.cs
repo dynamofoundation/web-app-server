@@ -20,46 +20,7 @@ namespace web_app_server
             try
             {
                 UInt32 lastBlock;
-                if (Global.useDatabase)
-                    lastBlock = (UInt32)Convert.ToInt32(Database.getSetting("last_block"));
-                else
-                {
-                    if (File.Exists("last_checkpoint.txt"))
-                    {
-                        lastBlock = Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt"));
-                        //lastBlock = Convert.ToUInt32(Database.getSetting("last_dyn_checkpoint"));
-                    }
-                    else
-                    {
-                        lastBlock = 0;
-                        File.WriteAllText("last_checkpoint.txt", "0");
-                    }
-
-                    if (!File.Exists("wallet.dat"))
-                    {
-                        Global.walletList = new Dictionary<string, Global.Wallet>();
-                        Global.txList = new Dictionary<string, Global.TX>();
-                        writeDATFiles();
-                    }
-
-                    byte[] _ByteArray = File.ReadAllBytes("wallet.dat");
-                    System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream(_ByteArray);
-                    System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                    Global.walletList = (Dictionary<string, Global.Wallet>)_BinaryFormatter.Deserialize(_MemoryStream);
-
-                    Global.clearAllPendingSpend();
-
-
-                    _ByteArray = File.ReadAllBytes("tx.dat");
-                    _MemoryStream = new System.IO.MemoryStream(_ByteArray);
-                    _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-                    Global.txList = (Dictionary<string, Global.TX>)_BinaryFormatter.Deserialize(_MemoryStream);
-
-                    _MemoryStream.Close();
-                    _MemoryStream.Dispose();
-                    _MemoryStream = null;
-                    _ByteArray = null;
-                }
+                lastBlock = (UInt32)Convert.ToInt32(Database.getSetting("last_block"));
 
                 while (!Global.Shutdown)
                 {
@@ -84,18 +45,7 @@ namespace web_app_server
                                 }
                                 if (lastBlock % 100 == 0)
                                     Log.log("Parsing block: " + lastBlock);
-                                if (Global.useDatabase)
-                                    Database.setSetting("last_block", lastBlock.ToString());
-                                if (lastBlock % 5000 == 0)
-                                    if (lastBlock > Convert.ToUInt32(File.ReadAllText("last_checkpoint.txt")))
-                                    {
-                                        if (Global.Verbose()) Log.log("Writing DAT file");
-                                        writeDATFiles();
-
-                                        File.WriteAllText("last_checkpoint.txt", lastBlock.ToString());
-                                        //Database.setSetting("last_dyn_checkpoint", lastBlock.ToString());
-                                    }
-
+                                Database.setSetting("last_block", lastBlock.ToString());
                             }
                         }
                     }
@@ -110,33 +60,6 @@ namespace web_app_server
             
         }
 
-
-        void writeDATFiles()
-        {
-            System.IO.MemoryStream _MemoryStream = new System.IO.MemoryStream();
-            System.Runtime.Serialization.Formatters.Binary.BinaryFormatter _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-            _BinaryFormatter.Serialize(_MemoryStream, Global.walletList);
-            byte[] _ByteArray = _MemoryStream.ToArray();
-            System.IO.FileStream _FileStream = new System.IO.FileStream("wallet.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-            _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
-            _FileStream.Close();
-            _MemoryStream.Close();
-            _MemoryStream.Dispose();
-            _MemoryStream = null;
-            _ByteArray = null;
-
-            _MemoryStream = new System.IO.MemoryStream();
-            _BinaryFormatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
-            _BinaryFormatter.Serialize(_MemoryStream, Global.txList);
-            _ByteArray = _MemoryStream.ToArray();
-            _FileStream = new System.IO.FileStream("tx.dat", System.IO.FileMode.Create, System.IO.FileAccess.Write);
-            _FileStream.Write(_ByteArray.ToArray(), 0, _ByteArray.Length);
-            _FileStream.Close();
-            _MemoryStream.Close();
-            _MemoryStream.Dispose();
-            _MemoryStream = null;
-            _ByteArray = null;
-        }
 
         void parseBlock(UInt32 blockHeight)
         {
@@ -179,18 +102,14 @@ namespace web_app_server
                         string vinTXID = vin["txid"];
                         int vout = vin["vout"];
                         string key = vinTXID + vout.ToString();
-                        if (Global.txList.ContainsKey(key))
-                            from = Global.txList[key].address;
-                        else
+                        from = Global.TXListGetFromAddrByKey(vinTXID, vout);
+                        if (from.Length == 0)
                             Log.log("ERROR TX vin not found " + key);
                     }
 
                     if (vin.ContainsKey("txid"))
                     {
-                        if (Global.useDatabase)
-                            Database.spendTransaction(vin["txid"].ToString(), Convert.ToInt32(vin["vout"]));
-                        else 
-                            Global.spendTransaction(vin["txid"].ToString(), Convert.ToInt32(vin["vout"]));
+                        Global.SpendTransaction(vin["txid"].ToString(), Convert.ToInt32(vin["vout"]));
                     }
 
                 }
@@ -205,18 +124,10 @@ namespace web_app_server
 
                         if (ok)
                         {
-                            if (Global.useDatabase)
-                            {
-                                Database.saveTx(tx["txid"].ToString(), Convert.ToInt32(vout["n"]), Convert.ToDecimal(vout["value"]), vout["scriptPubKey"]["address"].ToString());
-                                Database.updateWalletBalance(vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m);
-                            }
-                            else
-                            {
-                                Global.saveTx(tx["txid"].ToString(), Convert.ToInt32(vout["n"]), Convert.ToDecimal(vout["value"]), vout["scriptPubKey"]["address"].ToString(), isCoinbase, (int)blockHeight);
-                                Global.updateWalletBalance(vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m);
-                                Global.addWalletHistory(from, vout["scriptPubKey"]["address"].ToString(), timestamp, Convert.ToDecimal(vout["value"]) * 100000000m);
-                                Swap.processWalletTX(from, vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m, blockHeight);
-                            }
+                            Global.SaveTx(tx["txid"].ToString(), Convert.ToInt32(vout["n"]), Convert.ToDecimal(vout["value"]), vout["scriptPubKey"]["address"].ToString(), isCoinbase, (int)blockHeight);
+                            Global.UpdateWalletBalance(vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m);
+                            Global.AddWalletHistory(from, vout["scriptPubKey"]["address"].ToString(), timestamp, Convert.ToDecimal(vout["value"]) * 100000000m);
+                            Swap.processWalletTX(from, vout["scriptPubKey"]["address"].ToString(), Convert.ToDecimal(vout["value"]) * 100000000m, blockHeight);
                         }
                     }
                 }

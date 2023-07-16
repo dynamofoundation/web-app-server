@@ -44,6 +44,7 @@ namespace web_app_server
 
         public static Dictionary<string, WebPack> webPacks = new Dictionary<string, WebPack>();
 
+        /*
         [Serializable]
         public class Transaction
         {
@@ -86,12 +87,12 @@ namespace web_app_server
         
         public static Dictionary<string, TX> txList = new Dictionary<string, TX>();
         public static Dictionary<string, Wallet> walletList = new Dictionary<string, Wallet>();
-
+        */
 
         public static int lastBlock;
         public static uint lastBlockTimestamp;
 
-        public static bool useDatabase = false;
+        //public static bool useDatabase = false;
 
 
         public static uint RandomNum(uint x)
@@ -277,139 +278,92 @@ namespace web_app_server
         }
 
 
-        public static void saveTx(string txID, int n, decimal amount, string address, bool isCoinbase, int blockHeight)
+        public static string TXListGetFromAddrByKey ( string txid, int vout )
+        {
+            return Database.ExecScalar("select tx_address from tx where tx_id = '" + txid + "' and txvout = " + vout);
+        }
+
+        
+        public static void SaveTx(string txID, int n, decimal amount, string address, bool isCoinbase, int blockHeight)
         {
             amount *= 100000000m;
 
-            TX tx = new TX();
-            tx.hash = txID;
-            tx.vout = n;
-            tx.amount = amount;
-            tx.address = address;
-            tx.spent = false;
-
             string key = txID + n.ToString();
 
-            lock(txList)
-                txList.Add(key, tx);
+            Database.ExecUpdate("insert into tx (tx_id, tx_vout, tx_amount, tx_address, tx_spend) values ('" + txID + "', " + n + ", " + amount + ", '" + address + "', 0)");
 
-            lock (walletList)
-            {
-                Wallet w;
-                if (walletList.ContainsKey(address))
-                {
-                    w = walletList[address];
-                }
-                else
-                {
-                    w = new Wallet();
-                    w.address = address;
-                    w.balance = 0;
-                    w.history = new List<Transaction>();
-                    w.utxo = new Dictionary<string, UTXO>();
-                }
+            int found = Convert.ToInt32(Database.ExecScalar("select count(1) from wallet where wallet_address = '" + address + "'"));
+            if (found == 0)
+                Database.ExecUpdate("insert into wallet (wallet_address, wallet_balance) values ('" + address + "', 0)");
 
-                UTXO u = new UTXO();
-                u.hash = txID;
-                u.vout = n;
-                u.amount = amount;
-                u.pendingSpend = DateTime.MinValue;
-                u.isCoinbase = isCoinbase;
-                u.blockHeight = blockHeight;
-                w.utxo.Add(key, u);
-                walletList[address] = w;
-            }
-
+            string sql = "insert into wallet_utxo (wallet_utxo_address, wallet_utxo_hash, wallet_utxo_amount, wallet_utxo_pending_spend, wallet_utxo_vout, wallet_utxo_coinbase, wallet_utxo_block) values (";
+            sql += "'" + address + "',";
+            sql += "'" + txID + "',";
+            sql += amount + ",";
+            sql += "0,";
+            sql += n + ",";
+            sql += (isCoinbase ? 1:0) + ",";
+            sql += blockHeight + ")";
+            Database.ExecUpdate(sql);
         }
-
-        public static void spendTransaction(string txid, int vout)
-        {
-            string key = txid + vout.ToString();
-            lock (txList)
-            {
-                if (txList.ContainsKey(key))
-                {
-                    TX tx = txList[key];
-                    tx.spent = true;
-                    txList[key] = tx;
+        
 
 
-                    lock (walletList)
-                    {
-                        if (walletList[tx.address].utxo.ContainsKey(key))
-                        {
-                            walletList[tx.address].utxo.Remove(key);
-                            updateWalletBalance(tx.address, -tx.amount);
-                        }
-                        else
-                            Log.log("Error: didnt find utxo in wallet " + txid + "  " + vout);
-                    }
-
-                    txList.Remove(key);
-                }
-                else
-                    Log.log("Error: didnt find utxo " + txid + "  " + vout);
-            }
-
-        }
-
-        public static void updateWalletBalance(string address, decimal amount)
+        
+        public static void SpendTransaction(string txid, int vout)
         {
 
-
-            lock (walletList)
-            {
-                if (walletList.ContainsKey(address))
-                {
-                    Wallet w = walletList[address];
-                    w.balance += amount;
-                    walletList[address] = w;
-                }
-                else
-                {
-                    Wallet w = new Wallet();
-                    w.address = address;
-                    w.balance = amount;
-                    w.history = new List<Transaction>();
-                    w.utxo = new Dictionary<string, UTXO>();
-                    walletList.Add(address, w);
-                }
-            }
+            decimal tx_amount = Convert.ToDecimal(Database.ExecScalar("select tx_amount from tx where tx_id = " + txid + " and tx_vout = " + vout));
+            string address = Database.ExecScalar("select tx_address from tx where tx_id = " + txid + " and tx_vout = " + vout);
+            Database.ExecUpdate("update tx set tx_spent = 1 where tx_id = '" + txid + "' and tx_vout = " + vout);       //TODO - spent has no purpose because we are deleting
+            Database.ExecUpdate("delete from wallet_utxo where wallet_utxo_key = " + txid + vout);
+            UpdateWalletBalance(address, -tx_amount);
+            Database.ExecUpdate("delete from tx set tx_id = '" + txid + "' and tx_vout = " + vout);
         }
-
-        public static void addWalletHistory(string from, string to, uint timestamp, decimal amount)
+        
+        
+        public static void UpdateWalletBalance(string address, decimal amount)
         {
-            Wallet w;
-            Transaction t;
+
+            int found = Convert.ToInt32(Database.ExecScalar("select count(1) from wallet where wallet_address = '" + address + "'"));
+            if (found == 0)
+                Database.ExecUpdate("insert into wallet (wallet_address, wallet_balance) values ('" + address + "', " + amount + ")");
+            else
+                Database.ExecUpdate("update wallet set wallet_balance = wallet_balance + " + amount + " where wallet_address = '" + address + "'");
+        }
+        
+
+
+        public static void AddWalletHistory(string from, string to, uint timestamp, decimal amount)
+        {
 
             if (to == from)     //exclude change  (assumes user doesnt send coins to themselves)
                 return;
 
-            lock (walletList)
+            string sql;
+            if (from != "coinbase")
             {
-                if (from != "coinbase")
-                {
-                    w = walletList[from];
-                    t = new Transaction();
-                    t.timestamp = timestamp;
-                    t.amount = -amount;
-                    t.from = from;
-                    t.to = to;
-                    w.history.Add(t);
-                    walletList[from] = w;
-                }
-
-                w = walletList[to];
-                t = new Transaction();
-                t.timestamp = timestamp;
-                t.amount = amount;
-                t.from = from;
-                t.to = to;
-                w.history.Add(t);
-                walletList[to] = w;
+                sql = "insert into wallet_history (wallet_history_address, wallet_history_timestamp, wallet_history_amount, wallet_history_from, wallet_history_to) values (";
+                sql += "'" + from + "',";
+                sql += timestamp + ",";
+                sql += -amount + ",";
+                sql += "'" + from + "',";
+                sql += "'" + to + "')";
+                Database.ExecUpdate(sql);
             }
+
+            sql = "insert into wallet_history (wallet_history_address, wallet_history_timestamp, wallet_history_amount, wallet_history_from, wallet_history_to) values (";
+            sql += "'" + to + "',";
+            sql += timestamp + ",";
+            sql += amount + ",";
+            sql += "'" + from + "',";
+            sql += "'" + to + "')";
+            Database.ExecUpdate(sql);
+
         }
 
+
+        /*
         public static void clearAllPendingSpend()
         {
             foreach (Wallet w in walletList.Values)
@@ -420,6 +374,7 @@ namespace web_app_server
                 }
 
         }
+        */
 
         public static int GetHexVal(char hex)
         {

@@ -1,7 +1,9 @@
 ﻿using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
+using System.Xml.Linq;
 
 namespace web_app_server
 {
@@ -35,6 +37,25 @@ namespace web_app_server
             return result;
         }
 
+        public static string ExecScalar(String sql)
+        {
+            MySqlConnection conn = new MySqlConnection(strConn);
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(sql, conn);
+            string result = cmd.ExecuteScalar().ToString();
+            conn.Close();
+            return result;
+        }
+
+        public static void ExecUpdate(string sql)
+        {
+            MySqlConnection conn = new MySqlConnection(strConn);
+            conn.Open();
+            MySqlCommand cmd = new MySqlCommand(sql, conn);
+            cmd.ExecuteNonQuery();
+            conn.Close();
+        }
+
 
         public static int SaveSwap(string dynAddr, string wdynAddr, Int64 amount, string action)
         {
@@ -54,6 +75,8 @@ namespace web_app_server
 
         }
 
+
+        /*
         public static void saveTx(string txID, int n, decimal amount, string address)
         {
             amount *= 100000000m;
@@ -139,6 +162,7 @@ namespace web_app_server
             return result > 0;
 
         }
+        */
 
         public static string getTopWallets()
         {
